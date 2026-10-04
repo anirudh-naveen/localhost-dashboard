@@ -7,6 +7,9 @@ const WRAPPER = /\b(npm|pnpm|yarn|npx|bunx|turbo|nodemon|concurrently)\b|npm-cli
 /** `sh -c <script>` shims that package managers put between themselves and the server. */
 const SHELL_SHIM = /^(\/bin\/)?(sh|bash|zsh) -c /;
 
+/** Docker's port forwarder; killing it takes down Docker Desktop, not the container. */
+const DOCKER = /com\.docker|docker-proxy|vpnkit/;
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function isAlive(pid: number): boolean {
@@ -64,7 +67,11 @@ export async function stopServer(pid: number, port: number, timeoutMs = 3000): P
     throw new Error(`pid ${pid} is no longer listening on :${port}`);
   }
 
-  const targets = stopTargets(pid, parsePsTree(await run("ps", ["-Ao", "pid=,ppid=,command="])));
+  const tree = parsePsTree(await run("ps", ["-Ao", "pid=,ppid=,command="]));
+  if (DOCKER.test(tree.get(pid)?.cmdline ?? "")) {
+    throw new Error("Port is published by Docker; stop the container instead");
+  }
+  const targets = stopTargets(pid, tree);
   signal(targets, "SIGTERM");
 
   const deadline = Date.now() + timeoutMs;

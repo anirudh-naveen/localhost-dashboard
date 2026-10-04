@@ -13,7 +13,7 @@ Without the companion the extension falls back to probing common ports, read-onl
 | `packages/shared` | Protocol types shared by the extension and the companion |
 | `packages/core` | Discovery (`lsof`/`ps`) and process control; reusable by a future desktop app |
 | `packages/host` | Native Messaging companion + installer |
-| `packages/extension` | MV3 extension *(in progress)* |
+| `packages/extension` | MV3 extension: popup, badge, probe fallback |
 
 ## Develop
 
@@ -22,6 +22,16 @@ npm install
 npm run build
 npm test
 ```
+
+## Load the extension
+
+1. `npm run build`
+2. Open `chrome://extensions`, enable **Developer mode**, click **Load unpacked** and pick
+   `packages/extension/dist`.
+
+The manifest pins a public `key`, so the extension ID is always
+`kgmeaiohbiopoacdedgpmchjbkbmdfig`, which is what the companion installer allows by default.
+After rebuilding, click the reload icon on the extension card.
 
 ## Install the companion
 

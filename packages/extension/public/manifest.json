@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Localhost Dashboard",
+  "version": "0.1.0",
+  "description": "See, open and stop the dev servers running on localhost.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArufFQ91beneK11BSG5spS9KnT815U46/iQvL1n36j6UloZjqYjKR5+L2eSu1gM9FgM0LMvq1nYv5tBUw+C2qyQDU0CP/Kg+87D+hEKt7OOrOkslflw9ojIePolsMyz+jtuWKe8uOrZL8h5a6+KJe3zm8a1mKG76mZaGNj057VOn+OANr/iV0DNMpviYAVMP68xyD+YR0R3/Nps1VknCMxQgNz7ZsYAJvmkVETnZdXVvHm1lPJlIC4sdmNqHWq0C/0InNSw49+fkjVVVAAVe4UrRoEBzevsZnSywH18N+oEP+x6IkjjmZ7jxuE83sENz7fqY+3YvWOJzxpq23E5EV2wIDAQAB",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Localhost Dashboard"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["nativeMessaging", "tabs", "alarms"],
+  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"]
+}

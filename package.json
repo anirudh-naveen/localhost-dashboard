@@ -6,9 +6,9 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc -b packages/host",
+    "build": "tsc -b packages/host && npm run build -w @ld/extension",
     "test": "vitest run",
-    "typecheck": "tsc -b packages/host",
+    "typecheck": "tsc -b packages/host && tsc -p packages/extension",
     "install-host": "node packages/host/dist/install.js install",
     "uninstall-host": "node packages/host/dist/install.js uninstall"
   },
