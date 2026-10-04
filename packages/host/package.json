@@ -1,0 +1,13 @@
+{
+  "name": "@ld/host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "localhost-dashboard-host": "./dist/install.js"
+  },
+  "dependencies": {
+    "@ld/core": "*",
+    "@ld/shared": "*"
+  }
+}

@@ -6,9 +6,11 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc -b packages/core",
+    "build": "tsc -b packages/host",
     "test": "vitest run",
-    "typecheck": "tsc -b packages/core"
+    "typecheck": "tsc -b packages/host",
+    "install-host": "node packages/host/dist/install.js install",
+    "uninstall-host": "node packages/host/dist/install.js uninstall"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

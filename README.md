@@ -12,7 +12,7 @@ Without the companion the extension falls back to probing common ports, read-onl
 | --- | --- |
 | `packages/shared` | Protocol types shared by the extension and the companion |
 | `packages/core` | Discovery (`lsof`/`ps`) and process control; reusable by a future desktop app |
-| `packages/host` | Native Messaging companion + installer *(in progress)* |
+| `packages/host` | Native Messaging companion + installer |
 | `packages/extension` | MV3 extension *(in progress)* |
 
 ## Develop
@@ -22,3 +22,15 @@ npm install
 npm run build
 npm test
 ```
+
+## Install the companion
+
+```bash
+npm run build
+npm run install-host
+```
+
+This writes `com.localhost_dashboard.host.json` into each installed Chromium browser's
+`NativeMessagingHosts` directory (Chrome, Brave, Edge, Arc, Vivaldi…) and a launcher at
+`~/.localhost-dashboard/host.sh` that pins the current `node` binary. Pass
+`-- --extension-id <id>` to allow a different extension ID; `npm run uninstall-host` removes it.
