@@ -1,7 +1,8 @@
 import type { Profile, ProfileInput, Server } from "@ld/shared";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ago, tildify, useNow } from "../ui/format";
 import { InstallBanner } from "../ui/InstallBanner";
+import { MovePanel } from "../ui/MovePanel";
 import { ConfirmButton, ErrorLine, ServerRow, useAction } from "../ui/rows";
 import { profileById } from "../ui/select";
 import { useBackground, type Background } from "../ui/useBackground";
@@ -15,6 +16,7 @@ export function App() {
   const [editing, setEditing] = useState<ProfileInput | null>(null);
   const [logsFor, setLogsFor] = useState<string | null>(null);
   const [showHidden, setShowHidden] = useState(false);
+  const [moving, setMoving] = useState<string | null>(null);
 
   const canControl = state.mode === "host";
   const profiles = profileById(state);
@@ -28,6 +30,8 @@ export function App() {
       a.name.localeCompare(b.name),
   );
   const logsProfile = logsFor ? profiles.get(logsFor) : undefined;
+  const movingProfile = moving ? profiles.get(moving) : undefined;
+  const movingServer = moving ? serverFor.get(moving) : undefined;
 
   return (
     <div className={`page ${logsProfile ? "with-logs" : ""}`}>
@@ -67,6 +71,7 @@ export function App() {
                   canControl={canControl}
                   onOpen={() => send({ type: "open", port: s.port })}
                   onStop={() => call("stop", { pid: s.pid, port: s.port })}
+                  onMove={s.profileId ? () => setMoving(s.profileId!) : undefined}
                   extra={
                     s.profileId && (
                       <button className="small" onClick={() => setLogsFor(s.profileId!)}>
@@ -92,8 +97,8 @@ export function App() {
               </button>
             </div>
             <p className="hint">
-              Servers you run are remembered automatically. Edit or pin one to keep it for good; unpinned
-              auto-captured profiles are forgotten after 14 days unseen.
+              Servers you run are remembered automatically. Edit or pin one to keep it for good; unpinned auto-captured
+              profiles are forgotten after 14 days unseen.
             </p>
             {sorted.length === 0 ? (
               <p className="empty">No profiles yet. Start a dev server and it will show up here.</p>
@@ -119,6 +124,7 @@ export function App() {
                       bg={bg}
                       onEdit={() => setEditing(p)}
                       onLogs={() => setLogsFor(p.id)}
+                      onMove={() => setMoving(p.id)}
                     />
                   ))}
                 </tbody>
@@ -135,6 +141,19 @@ export function App() {
           call={call}
           onClose={() => setLogsFor(null)}
         />
+      )}
+
+      {movingProfile && (
+        <Modal onClose={() => setMoving(null)}>
+          <MovePanel
+            profile={movingProfile}
+            server={movingServer}
+            tabCount={movingServer ? (state.tabs[movingServer.port]?.length ?? 0) : 0}
+            bg={bg}
+            onDone={() => setMoving(null)}
+            onCancel={() => setMoving(null)}
+          />
+        </Modal>
       )}
 
       {editing && (
@@ -158,9 +177,10 @@ interface ProfileRowProps {
   bg: Background;
   onEdit: () => void;
   onLogs: () => void;
+  onMove: () => void;
 }
 
-function ProfileRow({ profile: p, server, now, bg, onEdit, onLogs }: ProfileRowProps) {
+function ProfileRow({ profile: p, server, now, bg, onEdit, onLogs, onMove }: ProfileRowProps) {
   const action = useAction();
   const del = useAction();
   const running = !!server;
@@ -172,8 +192,15 @@ function ProfileRow({ profile: p, server, now, bg, onEdit, onLogs }: ProfileRowP
       </td>
       <td>
         <div className="name">
+          <button
+            className={`star ${p.pinned ? "star-on" : ""}`}
+            title={p.pinned ? "Unpin" : "Pin: keep this profile and stop auto-updating its command"}
+            aria-pressed={p.pinned}
+            onClick={() => action.run(() => bg.call("profiles.upsert", { profile: { ...p, pinned: !p.pinned } }))}
+          >
+            {p.pinned ? "★" : "☆"}
+          </button>
           {p.name}
-          {p.pinned && <span className="badge">pinned</span>}
           {p.autoCaptured && <span className="badge badge-muted">auto</span>}
         </div>
         <div className="meta" title={p.cwd}>
@@ -217,12 +244,8 @@ function ProfileRow({ profile: p, server, now, bg, onEdit, onLogs }: ProfileRowP
           <button className="small" onClick={onLogs}>
             Logs
           </button>
-          <button
-            className="small"
-            title={p.pinned ? "Unpin" : "Pin: keep this profile and stop auto-updating its command"}
-            onClick={() => action.run(() => bg.call("profiles.upsert", { profile: { ...p, pinned: !p.pinned } }))}
-          >
-            {p.pinned ? "Unpin" : "Pin"}
+          <button className="small" onClick={onMove} title={running ? "Restart on a different port" : "Change port"}>
+            Move
           </button>
           <button className="small" onClick={onEdit}>
             Edit
@@ -239,5 +262,16 @@ function ProfileRow({ profile: p, server, now, bg, onEdit, onLogs }: ProfileRowP
         </div>
       </td>
     </tr>
+  );
+}
+
+/** Native modal dialog; Esc and backdrop clicks close it. */
+function Modal({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => ref.current?.showModal(), []);
+  return (
+    <dialog ref={ref} className="modal" onCancel={onClose} onClick={(e) => e.target === ref.current && onClose()}>
+      {children}
+    </dialog>
   );
 }

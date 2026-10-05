@@ -65,6 +65,8 @@ export interface Profile {
   env: Record<string, string>;
   /** Port the server is expected to listen on; Start waits for it. */
   port?: number;
+  /** Last framework seen running from this profile; lets a stopped profile be moved with the right flag. */
+  framework?: Framework;
   /** Captured from a running server and still owned by auto-capture (overwritten on re-capture, pruned when stale). */
   autoCaptured: boolean;
   /** Kept forever and listed first. */
@@ -95,6 +97,28 @@ export interface StopResult {
   pids: number[];
 }
 
+/** How a move changes the command: an existing port replaced, a flag appended, or `PORT` set. */
+export type PortStrategy = "replace" | "flag" | "env";
+
+export interface MovePreview {
+  /** Requested port, or the next free one after the current port. */
+  port: number;
+  free: boolean;
+  command: string;
+  env: Record<string, string>;
+  strategy: PortStrategy;
+  /** Whether the server is running and will be restarted. */
+  running: boolean;
+}
+
+export interface MoveResult {
+  profile: Profile;
+  oldPort?: number;
+  newPort: number;
+  /** Set when a running server was restarted on the new port. */
+  started?: StartResult;
+}
+
 export interface StartResult {
   pid: number;
   /** False when the profile has no port, or nothing listened before the timeout. */
@@ -109,6 +133,13 @@ export interface HostMethods {
   subscribe: { params: {}; result: Snapshot };
   stop: { params: { pid: number; port: number }; result: StopResult };
   start: { params: { profileId: string }; result: StartResult };
+  /** Proposed command/env for moving a profile to `port` (or a suggested free port). */
+  "move.preview": { params: { profileId: string; port?: number }; result: MovePreview };
+  /** Rewrite the profile for `port` and, if running, restart it there. Rolls back on failure. */
+  move: {
+    params: { profileId: string; port: number; command?: string; env?: Record<string, string> };
+    result: MoveResult;
+  };
   "profiles.upsert": { params: { profile: ProfileInput }; result: Profile };
   "profiles.delete": { params: { profileId: string }; result: null };
   /** Last ~64 KB of the profile's log file. */

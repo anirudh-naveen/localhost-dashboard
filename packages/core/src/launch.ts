@@ -5,6 +5,7 @@ import { dirname } from "node:path";
 import type { Profile, StartResult } from "@ld/shared";
 import { listeningPids } from "./control.js";
 import { logFile } from "./paths.js";
+import { isPortFree } from "./ports.js";
 
 const MAX_LOG_BYTES = 5 * 1024 * 1024;
 const TAIL_BYTES = 64 * 1024;
@@ -41,9 +42,11 @@ async function rotate(file: string): Promise<void> {
  */
 export async function startProfile(profile: Profile): Promise<StartResult> {
   if (!existsSync(profile.cwd)) throw new Error(`Directory not found: ${profile.cwd}`);
-  if (profile.port) {
-    const busy = await listeningPids(profile.port);
-    if (busy.length) throw new Error(`:${profile.port} is already in use by pid ${busy.join(", ")}`);
+  if (profile.port && !(await isPortFree(profile.port))) {
+    const pids = await listeningPids(profile.port);
+    throw new Error(
+      `:${profile.port} is already in use${pids.length ? ` by pid ${pids.join(", ")}` : " by another user's process"}`,
+    );
   }
 
   const log = logFile(profile.id);

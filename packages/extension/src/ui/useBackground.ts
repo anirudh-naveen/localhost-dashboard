@@ -1,6 +1,6 @@
 import type { HostMethods } from "@ld/shared";
 import { useEffect, useRef, useState } from "react";
-import { UI_PORT, type BgToUi, type State, type UiMethod, type UiToBg } from "../messages";
+import { UI_PORT, type BgToUi, type MoveParams, type State, type UiMethod, type UiToBg } from "../messages";
 
 type Result = Extract<BgToUi, { type: "result" }>;
 
@@ -26,16 +26,23 @@ export function useBackground() {
 
   const send = (msg: UiToBg) => portRef.current?.postMessage(msg);
 
-  /** Call a companion method; rejects with the companion's error message. */
-  function call<M extends UiMethod>(method: M, params: HostMethods[M]["params"]): Promise<HostMethods[M]["result"]> {
+  function request<T>(build: (reqId: number) => UiToBg): Promise<T> {
     return new Promise((resolve, reject) => {
       const reqId = nextId.current++;
-      pending.current.set(reqId, (r) => (r.ok ? resolve(r.result as HostMethods[M]["result"]) : reject(new Error(r.error))));
-      send({ type: "host", reqId, method, params });
+      pending.current.set(reqId, (r) => (r.ok ? resolve(r.result as T) : reject(new Error(r.error))));
+      send(build(reqId));
     });
   }
 
-  return { state, send, call };
+  /** Call a companion method; rejects with the companion's error message. */
+  const call = <M extends UiMethod>(method: M, params: HostMethods[M]["params"]) =>
+    request<HostMethods[M]["result"]>((reqId) => ({ type: "host", reqId, method, params }));
+
+  /** Move a profile to a new port, optionally retargeting open tabs. */
+  const move = (params: MoveParams) =>
+    request<HostMethods["move"]["result"]>((reqId) => ({ type: "move", reqId, params }));
+
+  return { state, send, call, move };
 }
 
 export type Background = ReturnType<typeof useBackground>;

@@ -145,6 +145,33 @@ async function open(port: number): Promise<void> {
   await chrome.tabs.create({ url: `http://localhost:${port}/` });
 }
 
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/** Navigate tabs on localhost:`from` to the same path on :`to`. */
+async function retargetTabs(from: number, to: number): Promise<number> {
+  const ids = (await tabsByPort())[from] ?? [];
+  for (const id of ids) {
+    const tab = await chrome.tabs.get(id).catch(() => undefined);
+    if (!tab?.url) continue;
+    const url = new URL(tab.url);
+    if (!LOCAL_HOSTS.has(url.hostname)) continue;
+    url.port = String(to);
+    await chrome.tabs.update(id, { url: url.toString() }).catch(() => {});
+  }
+  return ids.length;
+}
+
+async function relay(p: chrome.runtime.Port, reqId: number, fn: (h: HostConnection) => Promise<unknown>): Promise<void> {
+  let reply: BgToUi;
+  try {
+    if (!host) throw new Error("Companion not connected");
+    reply = { type: "result", reqId, ok: true, result: await fn(host) };
+  } catch (e) {
+    reply = { type: "result", reqId, ok: false, error: (e as Error).message };
+  }
+  p.postMessage(reply);
+}
+
 async function onUiMessage(p: chrome.runtime.Port, msg: UiToBg): Promise<void> {
   switch (msg.type) {
     case "refresh":
@@ -161,17 +188,18 @@ async function onUiMessage(p: chrome.runtime.Port, msg: UiToBg): Promise<void> {
       return connect();
     case "open":
       return open(msg.port);
-    case "host": {
-      let reply: BgToUi;
-      try {
-        if (!host) throw new Error("Companion not connected");
-        // The companion pushes a fresh snapshot after mutating requests.
-        const result = await host.request(msg.method, msg.params as never);
-        reply = { type: "result", reqId: msg.reqId, ok: true, result };
-      } catch (e) {
-        reply = { type: "result", reqId: msg.reqId, ok: false, error: (e as Error).message };
-      }
-      p.postMessage(reply);
+    case "host":
+      // The companion pushes a fresh snapshot after mutating requests.
+      return relay(p, msg.reqId, (h) => h.request(msg.method, msg.params as never));
+    case "move": {
+      const { retargetTabs: retarget, ...params } = msg.params;
+      return relay(p, msg.reqId, async (h) => {
+        const result = await h.request("move", params);
+        if (retarget && result.started?.listening && result.oldPort) {
+          await retargetTabs(result.oldPort, result.newPort);
+        }
+        return result;
+      });
     }
   }
 }

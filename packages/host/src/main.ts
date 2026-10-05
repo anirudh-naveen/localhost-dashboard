@@ -4,6 +4,8 @@ import {
   deleteProfile,
   getProfile,
   listServers,
+  moveProfile,
+  previewMove,
   startProfile,
   stopServer,
   syncProfiles,
@@ -23,6 +25,14 @@ async function snapshot(): Promise<Snapshot> {
   const servers = await listServers();
   const profiles = await syncProfiles(servers);
   return { servers, profiles };
+}
+
+/** A profile plus its running server, if any. */
+async function withServer(profileId: string) {
+  const snap = await snapshot();
+  const profile = snap.profiles.find((p) => p.id === profileId);
+  if (!profile) throw new Error(`No profile ${profileId}`);
+  return { profile, server: snap.servers.find((s) => s.profileId === profileId) };
 }
 
 let subscribed = false;
@@ -78,6 +88,14 @@ async function handle(req: HostRequest): Promise<unknown> {
       return stopServer(req.pid, req.port);
     case "start":
       return startProfile(await getProfile(req.profileId));
+    case "move.preview": {
+      const { profile, server } = await withServer(req.profileId);
+      return previewMove(profile, server, req.port);
+    }
+    case "move": {
+      const { profile, server } = await withServer(req.profileId);
+      return moveProfile(profile, server, req.port, { command: req.command, env: req.env });
+    }
     case "profiles.upsert":
       return upsertProfile(req.profile);
     case "profiles.delete":
@@ -90,7 +108,7 @@ async function handle(req: HostRequest): Promise<unknown> {
   }
 }
 
-const MUTATING = new Set(["stop", "start", "profiles.upsert", "profiles.delete"]);
+const MUTATING = new Set(["stop", "start", "move", "profiles.upsert", "profiles.delete"]);
 
 const decoder = new FrameDecoder();
 process.stdin.on("data", (chunk: Buffer) => {

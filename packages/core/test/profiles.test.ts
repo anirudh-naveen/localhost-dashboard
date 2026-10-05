@@ -32,6 +32,7 @@ function profile(over: Partial<Profile> = {}): Profile {
     cwd: "/Users/dev/app",
     env: {},
     port: 5173,
+    framework: "vite",
     autoCaptured: true,
     pinned: false,
     createdAt: NOW - DAY,
@@ -85,6 +86,13 @@ describe("reconcile", () => {
     const s = server({ launch: "pnpm dev" });
     expect(reconcile([profile()], [s], NOW).profiles[0].command).toBe("pnpm dev");
     expect(reconcile([profile({ autoCaptured: false })], [s], NOW).profiles[0].command).toBe("npm run dev");
+  });
+
+  it("remembers the framework, ignoring unknown sightings", () => {
+    const first = reconcile([], [server()], NOW).profiles;
+    expect(first[0].framework).toBe("vite");
+    const again = reconcile(first, [server({ framework: "unknown" })], NOW + DAY);
+    expect(again.profiles[0].framework).toBe("vite");
   });
 
   it("only bumps lastSeen once a minute", () => {

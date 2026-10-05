@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute } from "node:path";
 import type { Profile, ProfileInput, Server } from "@ld/shared";
 import { logFile, profilesFile } from "./paths.js";
+import { validPort } from "./ports.js";
 
 /** Unpinned auto-captured profiles not seen for this long are dropped. */
 const STALE_MS = 14 * 24 * 60 * 60 * 1000;
@@ -76,6 +77,7 @@ export function reconcile(
         cwd: s.cwd,
         env: {},
         port: s.port,
+        framework: s.framework,
         autoCaptured: true,
         pinned: false,
         createdAt: now,
@@ -87,6 +89,10 @@ export function reconcile(
     s.profileId = p.id;
     if (!p.lastSeen || now - p.lastSeen >= SEEN_GRANULARITY_MS) {
       p.lastSeen = now;
+      changed = true;
+    }
+    if (s.framework !== "unknown" && p.framework !== s.framework) {
+      p.framework = s.framework;
       changed = true;
     }
     if (p.autoCaptured && !s.daemon && p.command !== s.launch) {
@@ -112,7 +118,7 @@ function validate(p: ProfileInput): void {
   if (!p.name.trim()) throw new Error("Name is required");
   if (!p.command.trim()) throw new Error("Command is required");
   if (!isAbsolute(p.cwd)) throw new Error("Working directory must be an absolute path");
-  if (p.port !== undefined && !(Number.isInteger(p.port) && p.port > 0 && p.port < 65536)) {
+  if (p.port !== undefined && !validPort(p.port)) {
     throw new Error("Port must be 1–65535");
   }
 }
@@ -144,6 +150,18 @@ async function upsert(input: ProfileInput): Promise<Profile> {
   }
   await saveProfiles(profiles);
   return profile;
+}
+
+/** Write a profile exactly as given (insert or replace by id). */
+export function saveProfile(profile: Profile): Promise<Profile> {
+  return locked(async () => {
+    const profiles = await loadProfiles();
+    const i = profiles.findIndex((p) => p.id === profile.id);
+    if (i >= 0) profiles[i] = profile;
+    else profiles.push(profile);
+    await saveProfiles(profiles);
+    return profile;
+  });
 }
 
 export function deleteProfile(id: string): Promise<void> {

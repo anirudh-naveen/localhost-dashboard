@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MovePanel } from "../ui/MovePanel";
 import { useNow } from "../ui/format";
 import { InstallBanner } from "../ui/InstallBanner";
 import { ServerRow, StoppedRow } from "../ui/rows";
@@ -8,8 +9,10 @@ import { useBackground } from "../ui/useBackground";
 const MAX_STOPPED = 5;
 
 export function App() {
-  const { state, send, call } = useBackground();
+  const bg = useBackground();
+  const { state, send, call } = bg;
   const [showHidden, setShowHidden] = useState(false);
+  const [moving, setMoving] = useState<string | null>(null);
   const now = useNow();
 
   const visible = state.servers.filter((s) => !s.hidden);
@@ -18,6 +21,8 @@ export function App() {
   const profiles = profileById(state);
   const stopped = stoppedProfiles(state);
   const canControl = state.mode === "host";
+  const movingProfile = moving ? profiles.get(moving) : undefined;
+  const movingServer = state.servers.find((s) => moving && s.profileId === moving);
 
   return (
     <div className="app">
@@ -36,46 +41,61 @@ export function App() {
 
       {state.mode === "probe" && <InstallBanner error={state.hostError} />}
 
-      <div className="scroll">
-        {rows.length === 0 ? (
-          <p className="empty">
-            {state.mode === "connecting" ? "Looking for servers…" : "No servers running on localhost."}
-          </p>
-        ) : (
-          <ul className="list">
-            {rows.map((s) => (
-              <ServerRow
-                key={`${s.pid}:${s.port}`}
-                server={s}
-                profile={s.profileId ? profiles.get(s.profileId) : undefined}
-                now={now}
-                tabCount={state.tabs[s.port]?.length ?? 0}
-                canControl={canControl}
-                onOpen={() => send({ type: "open", port: s.port })}
-                onStop={() => call("stop", { pid: s.pid, port: s.port })}
-              />
-            ))}
-          </ul>
-        )}
-
-        {stopped.length > 0 && (
-          <>
-            <h2 className="section">Stopped</h2>
+      {movingProfile ? (
+        // Inline rather than a modal: a short popup would clip a dialog.
+        <div className="scroll">
+          <MovePanel
+            profile={movingProfile}
+            server={movingServer}
+            tabCount={movingServer ? (state.tabs[movingServer.port]?.length ?? 0) : 0}
+            bg={bg}
+            onDone={() => setMoving(null)}
+            onCancel={() => setMoving(null)}
+          />
+        </div>
+      ) : (
+        <div className="scroll">
+          {rows.length === 0 ? (
+            <p className="empty">
+              {state.mode === "connecting" ? "Looking for servers…" : "No servers running on localhost."}
+            </p>
+          ) : (
             <ul className="list">
-              {stopped.slice(0, MAX_STOPPED).map((p) => (
-                <StoppedRow key={p.id} profile={p} now={now} onStart={() => call("start", { profileId: p.id })} />
+              {rows.map((s) => (
+                <ServerRow
+                  key={`${s.pid}:${s.port}`}
+                  server={s}
+                  profile={s.profileId ? profiles.get(s.profileId) : undefined}
+                  now={now}
+                  tabCount={state.tabs[s.port]?.length ?? 0}
+                  canControl={canControl}
+                  onOpen={() => send({ type: "open", port: s.port })}
+                  onStop={() => call("stop", { pid: s.pid, port: s.port })}
+                  onMove={s.profileId ? () => setMoving(s.profileId!) : undefined}
+                />
               ))}
             </ul>
-            {stopped.length > MAX_STOPPED && (
-              <button className="link more" onClick={() => void openDashboard()}>
-                {stopped.length - MAX_STOPPED} more in the dashboard →
-              </button>
-            )}
-          </>
-        )}
-      </div>
+          )}
 
-      {hidden.length > 0 && (
+          {stopped.length > 0 && (
+            <>
+              <h2 className="section">Stopped</h2>
+              <ul className="list">
+                {stopped.slice(0, MAX_STOPPED).map((p) => (
+                  <StoppedRow key={p.id} profile={p} now={now} onStart={() => call("start", { profileId: p.id })} />
+                ))}
+              </ul>
+              {stopped.length > MAX_STOPPED && (
+                <button className="link more" onClick={() => void openDashboard()}>
+                  {stopped.length - MAX_STOPPED} more in the dashboard →
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {!movingProfile && hidden.length > 0 && (
         <footer>
           <button className="link" onClick={() => setShowHidden(!showHidden)}>
             {showHidden ? "Hide" : "Show"} {hidden.length} system/app listener{hidden.length === 1 ? "" : "s"}

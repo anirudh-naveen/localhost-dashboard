@@ -299,3 +299,31 @@ dialog.editor::backdrop {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+dialog.modal {
+  width: min(520px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+dialog.modal::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+
+dialog.modal .move {
+  padding: 20px;
+}
+
+button.star {
+  background: none;
+  padding: 0 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+button.star-on {
+  color: #eab308;
+}

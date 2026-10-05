@@ -292,3 +292,81 @@ footer {
   padding: 8px 14px 10px;
   border-top: 1px solid var(--line);
 }
+
+/* Move panel (inline in the popup, inside a dialog on the dashboard) */
+.move {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+}
+
+.move h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.move-ports {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.move-ports input {
+  width: 84px;
+}
+
+.move label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.move label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+
+.move input:not([type="checkbox"]),
+.move textarea {
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--fg);
+  background: var(--code);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  resize: vertical;
+}
+
+.move input:focus,
+.move textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.move .hint {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.move .ok {
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.move .error {
+  white-space: normal;
+}
+
+.move-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

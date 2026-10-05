@@ -16,10 +16,16 @@ export interface State {
 /** Companion methods UI pages may call through the background. */
 export type UiMethod = Exclude<keyof HostMethods, "ping" | "list" | "subscribe">;
 
+export type MoveParams = HostMethods["move"]["params"] & {
+  /** Point tabs on the old port at the new one once it's listening. */
+  retargetTabs: boolean;
+};
+
 export type UiToBg =
   | { type: "refresh" }
   | { type: "open"; port: number }
-  | { type: "host"; reqId: number; method: UiMethod; params: object };
+  | { type: "host"; reqId: number; method: UiMethod; params: object }
+  | { type: "move"; reqId: number; params: MoveParams };
 
 export type BgToUi =
   | { type: "state"; state: State }

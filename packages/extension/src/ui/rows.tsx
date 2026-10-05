@@ -77,11 +77,23 @@ interface ServerRowProps {
   canControl: boolean;
   onOpen: () => void;
   onStop: () => Promise<unknown>;
+  /** Shown when the server has a profile to restart from. */
+  onMove?: () => void;
   /** Extra buttons (e.g. Logs on the dashboard). */
   extra?: ReactNode;
 }
 
-export function ServerRow({ server: s, profile, now, tabCount, canControl, onOpen, onStop, extra }: ServerRowProps) {
+export function ServerRow({
+  server: s,
+  profile,
+  now,
+  tabCount,
+  canControl,
+  onOpen,
+  onStop,
+  onMove,
+  extra,
+}: ServerRowProps) {
   const stop = useAction();
   const name = s.title || profile?.name || FRAMEWORK_LABEL[s.framework] || s.command || "HTTP server";
   const meta = [
@@ -123,6 +135,11 @@ export function ServerRow({ server: s, profile, now, tabCount, canControl, onOpe
         <button className="small" onClick={onOpen}>
           {tabCount > 0 ? "Go to tab" : "Open"}
         </button>
+        {canControl && onMove && profile && !stopBlocked && (
+          <button className="small" onClick={onMove} title="Restart on a different port">
+            Move
+          </button>
+        )}
         {canControl && (
           <ConfirmButton
             onConfirm={() => stop.run(onStop)}
@@ -148,7 +165,9 @@ interface StoppedRowProps {
 
 export function StoppedRow({ profile: p, now, onStart, extra }: StoppedRowProps) {
   const start = useAction();
-  const meta = [p.pinned ? "★ pinned" : undefined, ago(p.lastSeen, now) && `seen ${ago(p.lastSeen, now)}`].filter(Boolean);
+  const meta = [p.pinned ? "★ pinned" : undefined, ago(p.lastSeen, now) && `seen ${ago(p.lastSeen, now)}`].filter(
+    Boolean,
+  );
   return (
     <li className="row">
       <span className="dot" />

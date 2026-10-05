@@ -4,6 +4,10 @@ Find, stop, start and re-port the dev servers running on `localhost`.
 
 - **Popup**: running servers (Open / Stop) and recently stopped ones (Start).
 - **Dashboard** (⧉ in the popup): profiles you can edit, pin and start, plus live logs.
+- **Move** a server to another port: the command is rewritten (existing port replaced,
+  or the framework's flag added, e.g. `npm run dev -- --port 5180`, else `PORT=`), you
+  review it, and the server restarts there. Open tabs follow; if the new port fails, it's
+  restarted on the old one.
 - **Profiles** are captured automatically from servers you run (by folder + port, using the
   outer command like `npm run dev`). Editing or pinning one makes it yours; unpinned
   auto-captured profiles are forgotten after 14 days unseen. State lives in
