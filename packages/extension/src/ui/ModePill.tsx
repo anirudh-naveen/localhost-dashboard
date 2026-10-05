@@ -2,8 +2,9 @@ import type { Mode } from "@ld/shared";
 import { desktop } from "../ext";
 
 const LABEL: Record<Mode, string> = {
-  // In the desktop app there's no companion: the app itself does the work.
-  host: desktop ? "Desktop" : "Companion",
+  host: "Companion",
+  // Inside the desktop app it's just "Desktop"; in a browser, connected to the app.
+  desktop: desktop ? "Desktop" : "Desktop app",
   probe: "Detect-only",
   connecting: "Connecting…",
 };

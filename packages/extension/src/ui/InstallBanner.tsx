@@ -3,6 +3,7 @@ import { ext } from "../ext";
 import { INSTALL_CMD } from "./format";
 
 const LOCAL_ORIGINS = ["http://localhost/*", "http://127.0.0.1/*"];
+const IS_SAFARI = !!ext?.runtime.getURL("").startsWith("safari-web-extension:");
 
 /** Firefox MV3 treats host permissions as opt-in; without them detect-only probing finds nothing. */
 function useHostAccess(): [boolean, () => void] {
@@ -27,19 +28,31 @@ export function InstallBanner({ error }: { error?: string }) {
           so common ports can be checked.
         </p>
       )}
-      <p>Showing common ports only. Install the companion to see every server, stop and start them. In the repo, run:</p>
-      <div className="cmd">
-        <code>{INSTALL_CMD}</code>
-        <button
-          className="small"
-          onClick={async () => {
-            await navigator.clipboard.writeText(INSTALL_CMD);
-            setCopied(true);
-          }}
-        >
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
+      {IS_SAFARI ? (
+        <p>
+          Showing common ports only. Open the <strong>Localhost Dashboard</strong> app to see every server, stop and
+          start them; Safari connects to it automatically (you'll be asked to allow it once).
+        </p>
+      ) : (
+        <p>
+          Showing common ports only. Open the <strong>Localhost Dashboard</strong> app, or install the companion to see
+          every server, stop and start them. For the companion, in the repo run:
+        </p>
+      )}
+      {!IS_SAFARI && (
+        <div className="cmd">
+          <code>{INSTALL_CMD}</code>
+          <button
+            className="small"
+            onClick={async () => {
+              await navigator.clipboard.writeText(INSTALL_CMD);
+              setCopied(true);
+            }}
+          >
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+      )}
       <p className="muted">Then click ↻. {error && <span title={error}>({error})</span>}</p>
     </div>
   );

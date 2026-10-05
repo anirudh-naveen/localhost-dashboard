@@ -1,4 +1,13 @@
-import { HOST_NAME, type HostMessage, type HostMethods, type HostRequest, type HostResponse, type Server, type Snapshot } from "@ld/shared";
+import {
+  DESKTOP_API_PORT,
+  HOST_NAME,
+  type HostMessage,
+  type HostMethods,
+  type HostRequest,
+  type HostResponse,
+  type Server,
+  type Snapshot,
+} from "@ld/shared";
 import { UI_PORT, type BgToUi, type UiToBg, type State } from "./messages";
 import { probeServers } from "./probe";
 import { ext } from "./ext";
@@ -40,9 +49,14 @@ async function setState(patch: Partial<State>): Promise<void> {
   for (const p of uiPages) p.postMessage(msg);
 }
 
-// ── Companion connection ─────────────────────────────────────────────────────
+// ── Backends: the stdio companion, or the desktop app's loopback API ───────────
 
-class HostConnection {
+interface Backend {
+  request<M extends keyof HostMethods>(type: M, params?: HostMethods[M]["params"]): Promise<HostMethods[M]["result"]>;
+  close(): void;
+}
+
+class HostConnection implements Backend {
   private port: chrome.runtime.Port;
   private nextId = 1;
   private pending = new Map<number, (r: HostResponse) => void>();
@@ -55,8 +69,10 @@ class HostConnection {
     });
     this.port.onDisconnect.addListener((port) => {
       // Chrome reports why on runtime.lastError; Firefox on port.error.
-      const error = (port as { error?: { message: string } } | undefined)?.error?.message ?? ext.runtime.lastError?.message;
-      for (const resolve of this.pending.values()) resolve({ id: 0, ok: false, error: error ?? "companion disconnected" });
+      const error =
+        (port as { error?: { message: string } } | undefined)?.error?.message ?? ext.runtime.lastError?.message;
+      for (const resolve of this.pending.values())
+        resolve({ id: 0, ok: false, error: error ?? "companion disconnected" });
       this.pending.clear();
       onClose(error);
     });
@@ -82,7 +98,69 @@ class HostConnection {
   }
 }
 
-let host: HostConnection | undefined;
+const DESKTOP_API = `http://127.0.0.1:${DESKTOP_API_PORT}/v1`;
+/** Start and move wait for the server to listen, which can take a while. */
+const DESKTOP_INVOKE_TIMEOUT_MS = 90_000;
+
+async function desktopFetch<T>(path: string, init: RequestInit = {}, timeoutMs = 3000): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${DESKTOP_API}${path}`, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+  } catch {
+    throw new Error("The Localhost Dashboard app isn't running");
+  }
+  const body = (await res.json().catch(() => ({}))) as { error?: string; result?: unknown };
+  if (!res.ok || body.error) throw new Error(body.error ?? `HTTP ${res.status}`);
+  return (path === "/snapshot" ? body : body.result) as T;
+}
+
+/** The desktop app's API, polled while a UI page is open (there's no push channel). */
+class DesktopConnection implements Backend {
+  private timer: ReturnType<typeof setInterval>;
+  private last = "";
+
+  constructor(onSnapshot: (s: Snapshot) => void, onClose: (error?: string) => void) {
+    this.timer = setInterval(async () => {
+      try {
+        const snap = await desktopFetch<Snapshot>("/snapshot");
+        const key = JSON.stringify(snap);
+        if (key !== this.last) {
+          this.last = key;
+          onSnapshot(snap);
+        }
+      } catch (e) {
+        this.close();
+        onClose((e as Error).message);
+      }
+    }, PROBE_MS);
+  }
+
+  request<M extends keyof HostMethods>(
+    type: M,
+    params: HostMethods[M]["params"] = {} as HostMethods[M]["params"],
+  ): Promise<HostMethods[M]["result"]> {
+    if (type === "list" || type === "subscribe") return desktopFetch("/snapshot");
+    if (type === "ping") return Promise.reject(new Error("unsupported"));
+    return desktopFetch(
+      "/invoke",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ method: type, params }),
+      },
+      DESKTOP_INVOKE_TIMEOUT_MS,
+    );
+  }
+
+  close(): void {
+    clearInterval(this.timer);
+  }
+}
+
+/** Safari routes native messaging to the extension's own (sandboxed) app, so only the desktop API works there. */
+const IS_SAFARI = ext.runtime.getURL("").startsWith("safari-web-extension:");
+
+let host: Backend | undefined;
 let probeTimer: ReturnType<typeof setInterval> | undefined;
 let lingerTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -99,28 +177,49 @@ function stopProbing(): void {
   probeTimer = undefined;
 }
 
+/**
+ * Connect with `make`, subscribe, and fall through to `fallback` if the backend fails
+ * now or later. Fallbacks only run while a UI page is open; the badge alarm copes alone.
+ */
+function attach(
+  make: (onClose: (error?: string) => void) => Backend,
+  mode: "host" | "desktop",
+  closedMessage: string,
+  fallback: (error: string) => void,
+): void {
+  const fail = (error = closedMessage) => {
+    if (host !== conn) return;
+    host = undefined;
+    conn.close();
+    if (uiPages.size) fallback(error);
+  };
+  const conn = make(fail);
+  host = conn;
+  conn.request("subscribe").then(
+    (snap) => void (host === conn && setState({ mode, hostError: undefined, ...snap })),
+    // Still connected but can't list (e.g. lsof failing): don't sit on "Connecting…".
+    (e: Error) => fail(e.message),
+  );
+}
+
+function connectDesktop(companionError?: string): void {
+  attach(
+    (onClose) => new DesktopConnection((snap) => void setState(snap), onClose),
+    "desktop",
+    "The Localhost Dashboard app stopped responding",
+    (error) => startProbing(companionError ? `${companionError}; and ${error.replace(/^The /, "the ")}` : error),
+  );
+}
+
 function connect(): void {
   if (host || probeTimer) return;
   void setState({ mode: "connecting" });
-  const conn = new HostConnection(
-    (snap) => void setState(snap),
-    (error) => {
-      if (host !== conn) return;
-      host = undefined;
-      // Fall back only while someone is looking; otherwise the alarm handles the badge.
-      if (uiPages.size) startProbing(error ?? "Companion exited");
-    },
-  );
-  host = conn;
-  conn.request("subscribe").then(
-    (snap) => setState({ mode: "host", hostError: undefined, ...snap }),
-    (e: Error) => {
-      // Companion still connected but can't list (e.g. lsof failing): don't sit on "Connecting…".
-      if (host !== conn) return; // onClose already fell back
-      host = undefined;
-      conn.close();
-      if (uiPages.size) startProbing(`Companion error: ${e.message}`);
-    },
+  if (IS_SAFARI) return connectDesktop();
+  attach(
+    (onClose) => new HostConnection((snap) => void setState(snap), onClose),
+    "host",
+    "Companion exited",
+    connectDesktop,
   );
 }
 
@@ -163,7 +262,7 @@ async function retargetTabs(from: number, to: number): Promise<number> {
   return ids.length;
 }
 
-async function relay(p: chrome.runtime.Port, reqId: number, fn: (h: HostConnection) => Promise<unknown>): Promise<void> {
+async function relay(p: chrome.runtime.Port, reqId: number, fn: (h: Backend) => Promise<unknown>): Promise<void> {
   let reply: BgToUi;
   try {
     if (!host) throw new Error("Companion not connected");
@@ -229,11 +328,18 @@ ext.tabs.onRemoved.addListener(refreshTabs);
 
 async function refreshBadge(): Promise<void> {
   if (host || probeTimer) return;
+  if (!IS_SAFARI) {
+    try {
+      const res = (await ext.runtime.sendNativeMessage(HOST_NAME, { id: 0, type: "list" })) as HostResponse;
+      if (res.ok) return updateBadge((res.result as Snapshot).servers);
+    } catch {
+      // Companion not installed.
+    }
+  }
   try {
-    const res = (await ext.runtime.sendNativeMessage(HOST_NAME, { id: 0, type: "list" })) as HostResponse;
-    if (res.ok) return updateBadge((res.result as Snapshot).servers);
+    return updateBadge((await desktopFetch<Snapshot>("/snapshot")).servers);
   } catch {
-    // Companion not installed.
+    // Desktop app not running (or this extension isn't approved yet).
   }
   updateBadge(await probeServers());
 }

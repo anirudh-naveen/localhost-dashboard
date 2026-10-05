@@ -4,7 +4,8 @@
  */
 import type { HostMethods, Profile, Server } from "./protocol.js";
 
-export type Mode = "connecting" | "host" | "probe";
+/** host: via the stdio companion; desktop: via the desktop app's API (or inside it); probe: detect-only. */
+export type Mode = "connecting" | "host" | "desktop" | "probe";
 
 export interface State {
   mode: Mode;

@@ -9,6 +9,12 @@ export const FIREFOX_ID = "localhost-dashboard@extension";
 
 export const PROTOCOL_VERSION = 1;
 
+/**
+ * Loopback port of the desktop app's API for browser extensions (Safari has no stdio
+ * companions; Chrome/Firefox use it when the companion isn't installed).
+ */
+export const DESKTOP_API_PORT = 47823;
+
 export type Framework =
   | "vite"
   | "next"

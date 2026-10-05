@@ -1,8 +1,9 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, screen, shell, Tray, type WebContents } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, screen, shell, Tray, type WebContents } from "electron";
 import { invoke, MUTATING, snapshot, snapshotKey, type ActionMethod } from "@ld/core";
 import type { BgToUi, State, UiToBg } from "@ld/shared";
+import { startApi } from "./api.js";
 
 /** Poll fast while a window is open (matches the companion), slowly for the tray count. */
 const FAST_MS = 2000;
@@ -58,11 +59,13 @@ export async function start(): Promise<DesktopApp> {
 
   // ── Snapshots ─────────────────────────────────────────────────────────────
   let refreshing: Promise<void> | undefined;
+  let refreshedAt = 0;
   function refresh(force = false): Promise<void> {
     refreshing ??= snapshot()
       .then((snap) => {
         const key = snapshotKey(snap);
-        state = { mode: "host", ...snap, tabs: {} };
+        refreshedAt = Date.now();
+        state = { mode: "desktop", ...snap, tabs: {} };
         updateTray();
         if (force || key !== lastKey) {
           lastKey = key;
@@ -223,6 +226,31 @@ export async function start(): Promise<DesktopApp> {
   });
 
   app.on("second-instance", () => showPopup());
+
+  // ── API for browser extensions (Safari's only way in; a fallback for the others) ──
+  await startApi({
+    async snapshot() {
+      if (Date.now() - refreshedAt > 1000) await refresh();
+      return { servers: state.servers, profiles: state.profiles };
+    },
+    async approve(origin) {
+      const browser = origin.startsWith("safari")
+        ? "Safari"
+        : origin.startsWith("moz")
+          ? "Firefox"
+          : "Chrome (or another Chromium browser)";
+      const { response } = await dialog.showMessageBox({
+        type: "question",
+        buttons: ["Allow", "Don't Allow"],
+        defaultId: 0,
+        cancelId: 1,
+        message: `Allow the ${browser} extension to control your local servers?`,
+        detail: `It will be able to list, start, stop and move servers through Localhost Dashboard.\n\n${origin}`,
+      });
+      return response === 0;
+    },
+    onMutate: () => void refresh(true),
+  });
 
   const ready = refresh(true);
   return { showPopup, showDashboard, popup, ready };

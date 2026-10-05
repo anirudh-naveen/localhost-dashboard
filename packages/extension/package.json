@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && vite build && node scripts/build-firefox.mjs",
-    "dev": "vite build --watch --mode development"
+    "build": "tsc --noEmit && vite build && node scripts/build-firefox.mjs && node scripts/build-safari.mjs",
+    "dev": "vite build --watch --mode development",
+    "safari:project": "sh scripts/safari-project.sh"
   },
   "dependencies": {
     "@ld/shared": "*",

@@ -67,7 +67,8 @@ h1 {
   color: var(--muted);
 }
 
-.pill-host {
+.pill-host,
+.pill-desktop {
   background: var(--accent-soft);
   color: var(--accent);
 }

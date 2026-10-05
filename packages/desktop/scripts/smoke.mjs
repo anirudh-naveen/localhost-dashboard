@@ -90,6 +90,11 @@ async function main() {
   } catch (e) {
     log("FAIL", e.message);
     failed = true;
+    const { BrowserWindow } = await import("electron");
+    for (const w of BrowserWindow.getAllWindows()) {
+      const t = await w.webContents.executeJavaScript("document.body.innerText").catch((err) => `<${err.message}>`);
+      log(`page ${w.webContents.getURL().split("/").pop()}:`, JSON.stringify(t.slice(0, 300)));
+    }
   } finally {
     server.kill();
     spawn("pkill", ["-f", `http.server ${PORT}`]);

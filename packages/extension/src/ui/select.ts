@@ -1,6 +1,11 @@
-import type { Profile } from "@ld/shared";
+import type { Mode, Profile } from "@ld/shared";
 import type { State } from "../messages";
 import { desktop, ext } from "../ext";
+
+/** Whether servers can be stopped/started: via the companion or the desktop app (not detect-only). */
+export function canControl(mode: Mode): boolean {
+  return mode === "host" || mode === "desktop";
+}
 
 /** Profiles with no running server: pinned first, then most recently seen. */
 export function stoppedProfiles(state: State): Profile[] {

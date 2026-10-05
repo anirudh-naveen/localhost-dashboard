@@ -4,7 +4,7 @@ import { useNow } from "../ui/format";
 import { InstallBanner } from "../ui/InstallBanner";
 import { ModePill } from "../ui/ModePill";
 import { ServerRow, StoppedRow } from "../ui/rows";
-import { openDashboard, profileById, stoppedProfiles } from "../ui/select";
+import { canControl, openDashboard, profileById, stoppedProfiles } from "../ui/select";
 import { useBackground } from "../ui/useBackground";
 
 const MAX_STOPPED = 5;
@@ -21,7 +21,7 @@ export function App() {
   const rows = showHidden ? [...visible, ...hidden] : visible;
   const profiles = profileById(state);
   const stopped = stoppedProfiles(state);
-  const canControl = state.mode === "host";
+  const controllable = canControl(state.mode);
   const movingProfile = moving ? profiles.get(moving) : undefined;
   const movingServer = state.servers.find((s) => moving && s.profileId === moving);
 
@@ -67,7 +67,7 @@ export function App() {
                   profile={s.profileId ? profiles.get(s.profileId) : undefined}
                   now={now}
                   tabCount={state.tabs[s.port]?.length ?? 0}
-                  canControl={canControl}
+                  canControl={controllable}
                   onOpen={() => send({ type: "open", port: s.port })}
                   onStop={() => call("stop", { pid: s.pid, port: s.port, containerId: s.container?.id })}
                   onMove={s.profileId ? () => setMoving(s.profileId!) : undefined}

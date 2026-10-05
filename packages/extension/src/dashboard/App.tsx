@@ -5,7 +5,7 @@ import { InstallBanner } from "../ui/InstallBanner";
 import { ModePill } from "../ui/ModePill";
 import { MovePanel } from "../ui/MovePanel";
 import { ConfirmButton, ErrorLine, ServerRow, useAction } from "../ui/rows";
-import { profileById } from "../ui/select";
+import { canControl, profileById } from "../ui/select";
 import { useBackground, type Background } from "../ui/useBackground";
 import { LogViewer } from "./LogViewer";
 import { ProfileEditor } from "./ProfileEditor";
@@ -19,7 +19,7 @@ export function App() {
   const [showHidden, setShowHidden] = useState(false);
   const [moving, setMoving] = useState<string | null>(null);
 
-  const canControl = state.mode === "host";
+  const controllable = canControl(state.mode);
   const profiles = profileById(state);
   const serverFor = new Map(state.servers.filter((s) => s.profileId).map((s) => [s.profileId!, s]));
   const visible = state.servers.filter((s) => showHidden || !s.hidden);
@@ -67,7 +67,7 @@ export function App() {
                   profile={s.profileId ? profiles.get(s.profileId) : undefined}
                   now={now}
                   tabCount={state.tabs[s.port]?.length ?? 0}
-                  canControl={canControl}
+                  canControl={controllable}
                   onOpen={() => send({ type: "open", port: s.port })}
                   onStop={() => call("stop", { pid: s.pid, port: s.port, containerId: s.container?.id })}
                   onMove={s.profileId ? () => setMoving(s.profileId!) : undefined}
@@ -84,7 +84,7 @@ export function App() {
           )}
         </section>
 
-        {canControl && (
+        {controllable && (
           <section>
             <div className="section-head">
               <h2>Profiles</h2>

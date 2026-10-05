@@ -7,7 +7,10 @@ const g = globalThis as { browser?: typeof chrome; chrome?: typeof chrome; ldDes
  * (whose MV3 APIs also return promises). Typed as Chrome's; the shapes we use match.
  * Undefined in the desktop app, where `desktop` is set instead.
  */
-export const ext = (g.browser ?? g.chrome) as typeof chrome;
+export const ext = [g.browser, g.chrome].find(
+  // Chromium (incl. Electron) defines a bare `window.chrome` without extension APIs.
+  (api) => api?.runtime,
+) as typeof chrome;
 
 /** Set when the UI runs inside the desktop app rather than the extension. */
 export const desktop: DesktopBridge | undefined = g.ldDesktop;

@@ -5,3 +5,4 @@ export { startProfile, tailLog } from "./launch.js";
 export { moveProfile, previewMove } from "./move.js";
 export { deleteProfile, getProfile, loadProfiles, reconcile, syncProfiles, upsertProfile } from "./profiles.js";
 export { invoke, MUTATING, snapshot, snapshotKey, type ActionMethod } from "./api.js";
+export { stateDir } from "./paths.js";

@@ -72,6 +72,30 @@ The main process is bundled with `core` (no `node_modules` in the app) and it ru
 menu-bar-only app (`LSUIElement`). Without a Developer ID certificate it's ad-hoc signed:
 fine on this Mac, but other Macs' Gatekeeper will block it until it's signed and notarized.
 
+## How the extension connects
+
+1. **Companion** (Chrome/Firefox): `npm run install-host`, talks over native messaging.
+2. **Desktop app**: if the companion isn't there (always, in Safari), the extension uses the
+   app's loopback API on `127.0.0.1:47823`. It only accepts browser-extension origins
+   (websites are refused), checks the Host header against DNS rebinding, and asks you once per
+   extension ("Allow the Safari extension to control your local servers?"). Approvals live in
+   `~/.localhost-dashboard/desktop-clients.json`; delete an entry to revoke it.
+3. **Detect-only**: neither is available; common ports are probed, nothing can be controlled.
+
+## Safari
+
+`npm run build` also produces `packages/extension/dist-safari`. Safari extensions ship inside
+a macOS app, which needs full **Xcode** (not just the Command Line Tools):
+
+```bash
+npm run safari:project -w @ld/extension
+```
+
+This generates `packages/safari/` with Apple's converter. Open the `.xcodeproj`, Run, then in
+Safari: Settings → Advanced → "Show features for web developers", Develop → "Allow Unsigned
+Extensions", and enable it in Settings → Extensions. Safari can't use the companion (its native
+messaging only reaches the extension's own sandboxed app), so run the desktop app alongside it.
+
 ## Firefox
 
 `npm run build` also produces `packages/extension/dist-firefox` (Firefox 140+). Load it via
