@@ -3,16 +3,56 @@
   "version": "0.1.0",
   "private": true,
   "description": "Menu-bar app for Localhost Dashboard",
+  "author": "Anirudh Naveen",
+  "homepage": "https://github.com/anirudhnaveen/localhost-dashboard",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "start": "electron ."
-  },
-  "dependencies": {
-    "@ld/core": "*",
-    "@ld/shared": "*"
+    "build": "tsc -p . && vite build && node scripts/copy-ui.mjs",
+    "start": "electron .",
+    "dist": "npm run build && electron-builder --publish never"
   },
   "devDependencies": {
-    "electron": "^44.5.1"
+    "@ld/core": "*",
+    "@ld/shared": "*",
+    "electron": "44.5.1",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "dev.localhost-dashboard.desktop",
+    "productName": "Localhost Dashboard",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "ui/**",
+      "assets/**",
+      "preload.cjs",
+      "package.json",
+      "!**/*.map"
+    ],
+    "npmRebuild": false,
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "extendInfo": {
+        "LSUIElement": true
+      },
+      "identity": "-",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Development"
+    }
   }
 }

@@ -62,6 +62,16 @@ calls `core` in-process, so it works without a browser or the companion. It can'
 browser tabs after a move; the extension still can, and both can run side by side.
 `electron packages/desktop/scripts/smoke.mjs` drives the real app end to end.
 
+To build a double-clickable app (`.app`, `.dmg` and `.zip` in `packages/desktop/release/`):
+
+```bash
+npm run dist:desktop
+```
+
+The main process is bundled with `core` (no `node_modules` in the app) and it runs as a
+menu-bar-only app (`LSUIElement`). Without a Developer ID certificate it's ad-hoc signed:
+fine on this Mac, but other Macs' Gatekeeper will block it until it's signed and notarized.
+
 ## Firefox
 
 `npm run build` also produces `packages/extension/dist-firefox` (Firefox 140+). Load it via

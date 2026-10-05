@@ -1,6 +1,7 @@
 import { execFile, spawn } from "node:child_process";
 import { closeSync, existsSync, openSync, statSync, writeSync } from "node:fs";
 import { mkdir, open, rename } from "node:fs/promises";
+import { userInfo } from "node:os";
 import { dirname } from "node:path";
 import type { Profile, StartResult } from "@ld/shared";
 import { listeningPids } from "./control.js";
@@ -11,7 +12,8 @@ const MAX_LOG_BYTES = 5 * 1024 * 1024;
 const TAIL_BYTES = 64 * 1024;
 const LISTEN_TIMEOUT_MS = 30_000;
 
-const shell = () => process.env.SHELL || "/bin/sh";
+/** The user's shell. Apps launched from Finder/Dock may have no SHELL, so fall back to the login shell. */
+const shell = () => process.env.SHELL || userInfo().shell || "/bin/sh";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 let pathPromise: Promise<string> | undefined;

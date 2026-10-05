@@ -10,10 +10,10 @@ const SLOW_MS = 15_000;
 const POPUP_WIDTH = 420;
 const POPUP_MAX_HEIGHT = 600;
 
-/** packages/desktop, wherever Electron was launched from. */
+/** The app root (packages/desktop, or the packaged app.asar), wherever Electron was launched from. */
 const root = fileURLToPath(new URL("..", import.meta.url));
-/** The UI is the extension's own build, run over an IPC bridge instead of a runtime port. */
-const page = (name: "popup" | "dashboard") => join(root, "../extension/dist", `${name}.html`);
+/** The UI is the extension's own build (copied to ui/ by scripts/copy-ui.mjs), run over an IPC bridge. */
+const page = (name: "popup" | "dashboard") => join(root, "ui", `${name}.html`);
 const preload = join(root, "preload.cjs");
 
 export interface DesktopApp {
