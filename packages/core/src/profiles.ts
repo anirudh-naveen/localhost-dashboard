@@ -45,6 +45,7 @@ function locked<T>(fn: () => Promise<T>): Promise<T> {
 
 /** Whether a server is worth remembering as a new profile. */
 function capturable(s: Server): boolean {
+  if (s.container) return true;
   return !s.hidden && s.framework !== "docker" && !!s.cwd && s.cwd !== "/" && !s.daemon;
 }
 
@@ -69,7 +70,7 @@ export function reconcile(
       next.find((p) => p.port === undefined && p.cwd === s.cwd && p.command === s.launch);
     if (!p) {
       if (!capturable(s)) continue;
-      const base = basename(s.cwd);
+      const base = s.container ? (s.container.compose?.service ?? s.container.name) : basename(s.cwd);
       p = {
         id: newId(),
         name: next.some((o) => o.name === base) ? `${base} :${s.port}` : base,
@@ -94,6 +95,13 @@ export function reconcile(
     if (s.framework !== "unknown" && p.framework !== s.framework) {
       p.framework = s.framework;
       changed = true;
+    }
+    if (s.container) {
+      const { id: _id, image: _image, ...docker } = s.container;
+      if (JSON.stringify(p.docker) !== JSON.stringify(docker)) {
+        p.docker = docker;
+        changed = true;
+      }
     }
     if (p.autoCaptured && !s.daemon && p.command !== s.launch) {
       p.command = s.launch;

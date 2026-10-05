@@ -1,7 +1,7 @@
 import type { Framework } from "@ld/shared";
 
 const FRAMEWORKS: [Framework, RegExp][] = [
-  ["docker", /com\.docker|docker-proxy|vpnkit/],
+  ["docker", /com\.docker|docker-proxy|vpnkit|rootlessport/],
   ["next", /next-server|\bnext(\.js)?\s+(dev|start)\b|next\/dist\/bin\/next/],
   ["nuxt", /\bnuxi?\b/],
   ["astro", /\bastro\b/],
@@ -20,6 +20,9 @@ const FRAMEWORKS: [Framework, RegExp][] = [
   ["jupyter", /jupyter/],
   ["hugo", /\bhugo\b/],
 ];
+
+/** Processes that own ports published by Docker containers. */
+export const DOCKER_PROCESS = /com\.docker|docker-proxy|vpnkit|rootlessport/;
 
 export function detectFramework(cmdline: string): Framework {
   for (const [fw, re] of FRAMEWORKS) if (re.test(cmdline)) return fw;

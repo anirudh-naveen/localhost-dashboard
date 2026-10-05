@@ -7,6 +7,7 @@ const resolved = new Map<string, string>();
 
 /** System tools by absolute path, since browsers launch the companion with a minimal PATH (lsof is in /usr/sbin). */
 function resolve(cmd: string): string {
+  if (cmd.startsWith("/")) return cmd;
   let path = resolved.get(cmd);
   if (!path) {
     path = SYSTEM_DIRS.map((d) => join(d, cmd)).find(existsSync) ?? cmd;
@@ -30,5 +31,21 @@ export function run(cmd: string, args: string[]): Promise<string> {
         else ok(stdout);
       },
     );
+  });
+}
+
+export interface RunResult {
+  code: number;
+  stdout: string;
+  stderr: string;
+}
+
+/** Like `run`, but reports the exit code and stderr instead of hiding failures. */
+export function runResult(cmd: string, args: string[], timeoutMs = 30_000): Promise<RunResult> {
+  return new Promise((ok, fail) => {
+    execFile(resolve(cmd), args, { maxBuffer: 16 * 1024 * 1024, timeout: timeoutMs }, (err, stdout, stderr) => {
+      if (err && (err as NodeJS.ErrnoException).code === "ENOENT") return fail(err);
+      ok({ code: err ? (typeof err.code === "number" ? err.code : 1) : 0, stdout, stderr });
+    });
   });
 }

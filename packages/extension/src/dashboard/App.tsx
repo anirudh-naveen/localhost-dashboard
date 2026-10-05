@@ -70,7 +70,7 @@ export function App() {
                   tabCount={state.tabs[s.port]?.length ?? 0}
                   canControl={canControl}
                   onOpen={() => send({ type: "open", port: s.port })}
-                  onStop={() => call("stop", { pid: s.pid, port: s.port })}
+                  onStop={() => call("stop", { pid: s.pid, port: s.port, containerId: s.container?.id })}
                   onMove={s.profileId ? () => setMoving(s.profileId!) : undefined}
                   extra={
                     s.profileId && (
@@ -228,7 +228,7 @@ function ProfileRow({ profile: p, server, now, bg, onEdit, onLogs, onMove }: Pro
             <ConfirmButton
               busy={action.busy}
               busyLabel="Stopping…"
-              onConfirm={() => action.run(() => bg.call("stop", { pid: server.pid, port: server.port }))}
+              onConfirm={() => action.run(() => bg.call("stop", { pid: server.pid, port: server.port, containerId: server.container?.id }))}
             >
               Stop
             </ConfirmButton>

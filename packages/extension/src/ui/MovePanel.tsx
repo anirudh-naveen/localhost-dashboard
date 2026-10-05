@@ -16,6 +16,9 @@ interface Props {
 const PREVIEW_DEBOUNCE_MS = 250;
 
 function strategyHint(p: MovePreview, profile: Profile, server?: Server): string {
+  if (p.strategy === "compose") {
+    return "Re-publishes the service via a Compose override file next to your profiles; your compose file isn't edited.";
+  }
   if (p.strategy === "replace") return `Replaced :${profile.port} in the command.`;
   const fw = server && server.framework !== "unknown" ? server.framework : profile.framework;
   if (p.strategy === "flag") return `Added ${(fw && FRAMEWORK_LABEL[fw]) || "the"} port flag.`;
@@ -125,8 +128,10 @@ export function MovePanel({ profile, server, tabCount, bg, onDone, onCancel }: P
 
       {preview?.running && (
         <p className="hint">
-          Restarts the server in the background; its output will appear in Logs. If it fails to start on the new port,
-          it's restarted on :{profile.port}.
+          {preview.strategy === "compose"
+            ? "Recreates the container (volumes are kept)."
+            : "Restarts the server in the background; its output will appear in Logs."}{" "}
+          If it fails to start on the new port, it's restarted on :{profile.port}.
         </p>
       )}
       {preview?.running && tabCount > 0 && (

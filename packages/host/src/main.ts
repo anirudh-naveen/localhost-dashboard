@@ -7,6 +7,7 @@ import {
   moveProfile,
   previewMove,
   startProfile,
+  stopContainer,
   stopServer,
   syncProfiles,
   tailLog,
@@ -85,6 +86,10 @@ async function handle(req: HostRequest): Promise<unknown> {
       return snap;
     }
     case "stop":
+      if (req.containerId) {
+        await stopContainer(req.containerId, req.port);
+        return { forced: false, pids: [] };
+      }
       return stopServer(req.pid, req.port);
     case "start":
       return startProfile(await getProfile(req.profileId));

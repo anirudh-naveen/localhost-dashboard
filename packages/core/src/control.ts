@@ -1,14 +1,11 @@
 import type { StopResult } from "@ld/shared";
-import { run } from "./exec.js";
-import { parsePsTree } from "./discover/parse.js";
+import { DOCKER_PROCESS } from "./discover/classify.js";
+import { platform } from "./discover/platform.js";
 
 /** Launchers that just wrap the real server; stopping only the child would leave them (or let them respawn it). */
 const WRAPPER = /\b(npm|pnpm|yarn|npx|bunx|turbo|nodemon|concurrently)\b|npm-cli\.js|yarn\.c?js|pnpm\.c?js/;
 /** `sh -c <script>` shims that package managers put between themselves and the server. */
 const SHELL_SHIM = /^(\/bin\/)?(sh|bash|zsh) -c /;
-
-/** Docker's port forwarder; killing it takes down Docker Desktop, not the container. */
-const DOCKER = /com\.docker|docker-proxy|vpnkit/;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -23,8 +20,8 @@ function isAlive(pid: number): boolean {
 
 /** PIDs listening on `port`, or on any TCP port when omitted. */
 export async function listeningPids(port?: number): Promise<number[]> {
-  const out = await run("lsof", ["-nP", port ? `-iTCP:${port}` : "-iTCP", "-sTCP:LISTEN", "-t"]);
-  return [...new Set(out.split("\n").filter(Boolean).map(Number))];
+  const listeners = await platform().listeners();
+  return [...new Set(listeners.filter((l) => port === undefined || l.port === port).map((l) => l.pid))];
 }
 
 type Tree = Map<number, { ppid: number; cmdline: string }>;
@@ -84,10 +81,11 @@ export async function stopServer(pid: number, port: number, timeoutMs = 3000): P
   }
 
   const [tree, listeners] = await Promise.all([
-    run("ps", ["-Ao", "pid=,ppid=,command="]).then(parsePsTree),
+    platform().processes(),
     listeningPids(),
   ]);
-  if (DOCKER.test(tree.get(pid)?.cmdline ?? "")) {
+  // Docker's port forwarder: killing it takes down Docker Desktop, not the container.
+  if (DOCKER_PROCESS.test(tree.get(pid)?.cmdline ?? "")) {
     throw new Error("Port is published by Docker; stop the container instead");
   }
   const targets = stopTargets(pid, tree, listeners);

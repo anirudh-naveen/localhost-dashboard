@@ -9,13 +9,22 @@ import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs
 import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { EXTENSION_ID, HOST_NAME } from "@ld/shared";
+import { EXTENSION_ID, FIREFOX_ID, HOST_NAME } from "@ld/shared";
 
 const HOME = homedir();
 const STATE_DIR = join(HOME, ".localhost-dashboard");
 const LAUNCHER = join(STATE_DIR, "host.sh");
 
-/** Browser profile roots; the manifest goes in `<root>/NativeMessagingHosts`. */
+/** Firefox: [browser data dir that shows it's installed, where host manifests go]. */
+function firefoxDirs(): [string, string] {
+  if (platform() === "darwin") {
+    const as = join(HOME, "Library", "Application Support");
+    return [join(as, "Firefox"), join(as, "Mozilla", "NativeMessagingHosts")];
+  }
+  return [join(HOME, ".mozilla"), join(HOME, ".mozilla", "native-messaging-hosts")];
+}
+
+/** Chromium profile roots; the manifest goes in `<root>/NativeMessagingHosts`. */
 function browserRoots(): string[] {
   if (platform() === "darwin") {
     const as = join(HOME, "Library", "Application Support");
@@ -64,24 +73,31 @@ function install(ids: string[]): void {
     allowed_origins: ids.map((id) => `chrome-extension://${id}/`),
   };
 
-  const roots = browserRoots().filter((r) => existsSync(r));
-  if (roots.length === 0) {
+  const targets: [string, object][] = browserRoots()
+    .filter((r) => existsSync(r))
+    .map((r) => [join(r, "NativeMessagingHosts"), manifest]);
+  const [firefox, firefoxHosts] = firefoxDirs();
+  if (existsSync(firefox)) {
+    // Firefox lists add-on IDs instead of extension origins.
+    const { allowed_origins: _, ...rest } = manifest;
+    targets.push([firefoxHosts, { ...rest, allowed_extensions: [FIREFOX_ID] }]);
+  }
+  if (targets.length === 0) {
     console.error("No supported browser profile directories found.");
     process.exit(1);
   }
-  for (const root of roots) {
-    const dir = join(root, "NativeMessagingHosts");
+  for (const [dir, content] of targets) {
     mkdirSync(dir, { recursive: true });
     const file = join(dir, `${HOST_NAME}.json`);
-    writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n");
+    writeFileSync(file, JSON.stringify(content, null, 2) + "\n");
     console.log(`wrote ${file}`);
   }
-  console.log(`launcher: ${LAUNCHER}\nallowed extensions: ${ids.join(", ")}`);
+  console.log(`launcher: ${LAUNCHER}\nallowed extensions: ${[...ids, FIREFOX_ID].join(", ")}`);
 }
 
 function uninstall(): void {
-  for (const root of browserRoots()) {
-    const file = join(root, "NativeMessagingHosts", `${HOST_NAME}.json`);
+  for (const dir of [...browserRoots().map((r) => join(r, "NativeMessagingHosts")), firefoxDirs()[1]]) {
+    const file = join(dir, `${HOST_NAME}.json`);
     if (existsSync(file)) {
       rmSync(file);
       console.log(`removed ${file}`);

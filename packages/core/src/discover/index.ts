@@ -1,8 +1,8 @@
 import type { Server } from "@ld/shared";
 import { stopTargets } from "../control.js";
-import { run } from "../exec.js";
-import { detectFramework, isHidden, isLocalBind } from "./classify.js";
-import { parseLsofCwd, parseLsofListen, parsePs } from "./parse.js";
+import { containerCwd, containerLaunch, listContainers, toContainerInfo } from "../docker.js";
+import { detectFramework, DOCKER_PROCESS, isHidden, isLocalBind } from "./classify.js";
+import { platform } from "./platform.js";
 import { fetchTitle, pruneTitleCache } from "./title.js";
 
 export interface ListOptions {
@@ -10,9 +10,10 @@ export interface ListOptions {
   titles?: boolean;
 }
 
-/** List TCP listeners reachable via localhost, enriched with process info. Uses lsof, so macOS and most Linux. */
+/** List TCP listeners reachable via localhost, enriched with process info. */
 export async function listServers({ titles = true }: ListOptions = {}): Promise<Server[]> {
-  const listeners = parseLsofListen(await run("lsof", ["-nP", "-iTCP", "-sTCP:LISTEN", "-F", "pcLn"]));
+  const os = platform();
+  const [listeners, procs] = await Promise.all([os.listeners(), os.processes()]);
 
   // One entry per pid:port; v4 and v6 binds of the same socket collapse, preferring v4.
   const byKey = new Map<string, (typeof listeners)[number]>();
@@ -22,17 +23,19 @@ export async function listServers({ titles = true }: ListOptions = {}): Promise<
     const prev = byKey.get(key);
     if (!prev || (prev.address.startsWith("[") && !l.address.startsWith("["))) byKey.set(key, l);
   }
+  // Forked workers inherit their parent's listening socket (nginx, gunicorn, …); show only the parent.
+  for (const [key, l] of byKey) {
+    for (let a = procs.get(l.pid)?.ppid; a && a > 1; a = procs.get(a)?.ppid) {
+      if (byKey.has(`${a}:${l.port}`)) {
+        byKey.delete(key);
+        break;
+      }
+    }
+  }
   if (byKey.size === 0) return [];
 
-  const pids = [...new Set([...byKey.values()].map((l) => l.pid))].join(",");
-  // All processes, not just listeners, so we can walk up to the launcher.
-  const [psOut, cwdOut] = await Promise.all([
-    run("ps", ["-Ao", "pid=,ppid=,pgid=,lstart=,command="]),
-    run("lsof", ["-a", "-d", "cwd", "-p", pids, "-Fn"]),
-  ]);
-  const procs = parsePs(psOut);
   const listenerPids = [...new Set(listeners.map((l) => l.pid))];
-  const cwds = parseLsofCwd(cwdOut);
+  const cwds = await os.cwds([...new Set([...byKey.values()].map((l) => l.pid))]);
 
   const servers: Server[] = [...byKey.values()].map((l) => {
     const proc = procs.get(l.pid);
@@ -57,6 +60,12 @@ export async function listServers({ titles = true }: ListOptions = {}): Promise<
     };
   });
 
+  // Docker Desktop (com.docker.backend) or docker-proxy owns published ports; on Linux with the
+  // userland proxy disabled there's no listener at all, so always ask docker there.
+  if (process.platform === "linux" || listeners.some((l) => DOCKER_PROCESS.test(l.command))) {
+    await attachContainers(servers);
+  }
+
   if (titles) {
     pruneTitleCache(new Set(servers.map((s) => `${s.pid}:${s.port}`)));
     await Promise.all(
@@ -69,4 +78,38 @@ export async function listServers({ titles = true }: ListOptions = {}): Promise<
   }
 
   return servers.sort((a, b) => Number(a.hidden) - Number(b.hidden) || a.port - b.port);
+}
+
+/** Label servers with the container publishing their port, adding entries for ports with no host listener. */
+async function attachContainers(servers: Server[]): Promise<void> {
+  for (const c of await listContainers()) {
+    for (const m of c.ports) {
+      let s = servers.find((x) => x.port === m.hostPort);
+      if (!s) {
+        s = {
+          port: m.hostPort,
+          address: m.hostIp === "0.0.0.0" || m.hostIp === "::" ? "*" : m.hostIp,
+          pid: 0,
+          ppid: 0,
+          pgid: 0,
+          command: "docker",
+          cmdline: c.image,
+          user: "",
+          framework: "docker",
+          hidden: false,
+          launch: "",
+          daemon: false,
+        };
+        servers.push(s);
+      }
+      Object.assign(s, {
+        container: toContainerInfo(c, m),
+        framework: "docker",
+        hidden: false,
+        daemon: false,
+        launch: containerLaunch(c),
+        cwd: containerCwd(c),
+      });
+    }
+  }
 }

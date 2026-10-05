@@ -1,6 +1,7 @@
 import { HOST_NAME, type HostMessage, type HostMethods, type HostRequest, type HostResponse, type Server, type Snapshot } from "@ld/shared";
 import { UI_PORT, type BgToUi, type UiToBg, type State } from "./messages";
 import { probeServers } from "./probe";
+import { ext } from "./ext";
 
 const PROBE_MS = 3000;
 /** Keep the companion alive briefly after the last UI page closes, so reopening is instant. */
@@ -13,7 +14,7 @@ const uiPages = new Set<chrome.runtime.Port>();
 // ── State + broadcast ────────────────────────────────────────────────────────
 
 async function tabsByPort(): Promise<Record<number, number[]>> {
-  const tabs = await chrome.tabs.query({ url: ["http://localhost/*", "http://127.0.0.1/*"] });
+  const tabs = await ext.tabs.query({ url: ["http://localhost/*", "http://127.0.0.1/*"] });
   const out: Record<number, number[]> = {};
   for (const t of tabs) {
     if (!t.url || t.id === undefined) continue;
@@ -25,9 +26,9 @@ async function tabsByPort(): Promise<Record<number, number[]>> {
 
 function updateBadge(servers: Server[]): void {
   const n = servers.filter((s) => !s.hidden).length;
-  chrome.action.setBadgeText({ text: n ? String(n) : "" });
-  chrome.action.setBadgeBackgroundColor({ color: "#16a34a" });
-  chrome.action.setBadgeTextColor?.({ color: "#ffffff" });
+  ext.action.setBadgeText({ text: n ? String(n) : "" });
+  ext.action.setBadgeBackgroundColor({ color: "#16a34a" });
+  ext.action.setBadgeTextColor?.({ color: "#ffffff" });
 }
 
 async function setState(patch: Partial<State>): Promise<void> {
@@ -47,13 +48,14 @@ class HostConnection {
   private pending = new Map<number, (r: HostResponse) => void>();
 
   constructor(onSnapshot: (s: Snapshot) => void, onClose: (error?: string) => void) {
-    this.port = chrome.runtime.connectNative(HOST_NAME);
+    this.port = ext.runtime.connectNative(HOST_NAME);
     this.port.onMessage.addListener((msg: HostMessage) => {
       if ("event" in msg) onSnapshot({ servers: msg.servers, profiles: msg.profiles });
       else this.pending.get(msg.id)?.(msg);
     });
-    this.port.onDisconnect.addListener(() => {
-      const error = chrome.runtime.lastError?.message;
+    this.port.onDisconnect.addListener((port) => {
+      // Chrome reports why on runtime.lastError; Firefox on port.error.
+      const error = (port as { error?: { message: string } } | undefined)?.error?.message ?? ext.runtime.lastError?.message;
       for (const resolve of this.pending.values()) resolve({ id: 0, ok: false, error: error ?? "companion disconnected" });
       this.pending.clear();
       onClose(error);
@@ -135,14 +137,14 @@ async function open(port: number): Promise<void> {
   const [tabId] = (await tabsByPort())[port] ?? [];
   if (tabId !== undefined) {
     try {
-      const tab = await chrome.tabs.update(tabId, { active: true });
-      if (tab?.windowId !== undefined) await chrome.windows.update(tab.windowId, { focused: true });
+      const tab = await ext.tabs.update(tabId, { active: true });
+      if (tab?.windowId !== undefined) await ext.windows.update(tab.windowId, { focused: true });
       return;
     } catch {
       // Closed in the meantime; open a new one.
     }
   }
-  await chrome.tabs.create({ url: `http://localhost:${port}/` });
+  await ext.tabs.create({ url: `http://localhost:${port}/` });
 }
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
@@ -151,12 +153,12 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 async function retargetTabs(from: number, to: number): Promise<number> {
   const ids = (await tabsByPort())[from] ?? [];
   for (const id of ids) {
-    const tab = await chrome.tabs.get(id).catch(() => undefined);
+    const tab = await ext.tabs.get(id).catch(() => undefined);
     if (!tab?.url) continue;
     const url = new URL(tab.url);
     if (!LOCAL_HOSTS.has(url.hostname)) continue;
     url.port = String(to);
-    await chrome.tabs.update(id, { url: url.toString() }).catch(() => {});
+    await ext.tabs.update(id, { url: url.toString() }).catch(() => {});
   }
   return ids.length;
 }
@@ -204,7 +206,7 @@ async function onUiMessage(p: chrome.runtime.Port, msg: UiToBg): Promise<void> {
   }
 }
 
-chrome.runtime.onConnect.addListener((p) => {
+ext.runtime.onConnect.addListener((p) => {
   if (p.name !== UI_PORT) return;
   uiPages.add(p);
   clearTimeout(lingerTimer);
@@ -220,15 +222,15 @@ chrome.runtime.onConnect.addListener((p) => {
 const refreshTabs = () => {
   if (uiPages.size) void setState({});
 };
-chrome.tabs.onUpdated.addListener((_id, info) => info.url && refreshTabs());
-chrome.tabs.onRemoved.addListener(refreshTabs);
+ext.tabs.onUpdated.addListener((_id, info) => info.url && refreshTabs());
+ext.tabs.onRemoved.addListener(refreshTabs);
 
 // ── Badge while no UI page is open ──────────────────────────────────────────
 
 async function refreshBadge(): Promise<void> {
   if (host || probeTimer) return;
   try {
-    const res = (await chrome.runtime.sendNativeMessage(HOST_NAME, { id: 0, type: "list" })) as HostResponse;
+    const res = (await ext.runtime.sendNativeMessage(HOST_NAME, { id: 0, type: "list" })) as HostResponse;
     if (res.ok) return updateBadge((res.result as Snapshot).servers);
   } catch {
     // Companion not installed.
@@ -237,9 +239,9 @@ async function refreshBadge(): Promise<void> {
 }
 
 // Alarms can be dropped across browser restarts, so make sure ours exists whenever the worker starts.
-void chrome.alarms.get(BADGE_ALARM).then((a) => {
-  if (!a) chrome.alarms.create(BADGE_ALARM, { periodInMinutes: 1 });
+void ext.alarms.get(BADGE_ALARM).then((a) => {
+  if (!a) ext.alarms.create(BADGE_ALARM, { periodInMinutes: 1 });
 });
-chrome.runtime.onInstalled.addListener(() => void refreshBadge());
-chrome.runtime.onStartup.addListener(() => void refreshBadge());
-chrome.alarms.onAlarm.addListener((a) => a.name === BADGE_ALARM && void refreshBadge());
+ext.runtime.onInstalled.addListener(() => void refreshBadge());
+ext.runtime.onStartup.addListener(() => void refreshBadge());
+ext.alarms.onAlarm.addListener((a) => a.name === BADGE_ALARM && void refreshBadge());

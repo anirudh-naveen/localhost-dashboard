@@ -95,20 +95,28 @@ export function ServerRow({
   extra,
 }: ServerRowProps) {
   const stop = useAction();
-  const name = s.title || profile?.name || FRAMEWORK_LABEL[s.framework] || s.command || "HTTP server";
-  const meta = [
-    s.title && FRAMEWORK_LABEL[s.framework],
-    profile && profile.name !== name ? profile.name : folder(s.cwd),
-    uptime(s.startedAt, now),
-    s.pid ? `pid ${s.pid}` : undefined,
-  ].filter(Boolean);
+  const c = s.container;
+  const name = c
+    ? (profile?.name ?? c.compose?.service ?? c.name)
+    : s.title || profile?.name || FRAMEWORK_LABEL[s.framework] || s.command || "HTTP server";
+  // For containers the pid/uptime belong to Docker's port forwarder, not the container.
+  const meta = c
+    ? [c.image, c.compose ? `compose: ${c.compose.project}` : `container ${c.name}`]
+    : [
+        s.title && FRAMEWORK_LABEL[s.framework],
+        profile && profile.name !== name ? profile.name : folder(s.cwd),
+        uptime(s.startedAt, now),
+        s.pid ? `pid ${s.pid}` : undefined,
+      ].filter(Boolean);
 
   const stopBlocked =
-    s.framework === "docker"
+    s.framework === "docker" && !c
       ? "Published by Docker; stop the container instead"
       : s.hidden
         ? "System/app listener"
         : undefined;
+  // Plain `docker run` containers can't be re-published without recreating them.
+  const movable = !stopBlocked && (!c || !!c.compose);
 
   return (
     <li className={`row ${s.hidden ? "row-hidden" : ""}`}>
@@ -135,8 +143,12 @@ export function ServerRow({
         <button className="small" onClick={onOpen}>
           {tabCount > 0 ? "Go to tab" : "Open"}
         </button>
-        {canControl && onMove && profile && !stopBlocked && (
-          <button className="small" onClick={onMove} title="Restart on a different port">
+        {canControl && onMove && profile && movable && (
+          <button
+            className="small"
+            onClick={onMove}
+            title={c ? "Re-publish the container on a different port" : "Restart on a different port"}
+          >
             Move
           </button>
         )}
@@ -146,7 +158,7 @@ export function ServerRow({
             busy={stop.busy}
             busyLabel="Stopping…"
             disabled={!!stopBlocked}
-            title={stopBlocked}
+            title={stopBlocked ?? (c ? `docker stop ${c.name}` : undefined)}
           >
             Stop
           </ConfirmButton>

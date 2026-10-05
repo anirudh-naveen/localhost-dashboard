@@ -4,6 +4,9 @@ export const HOST_NAME = "com.localhost_dashboard.host";
 /** ID of the unpacked extension, pinned by the `key` in its manifest. */
 export const EXTENSION_ID = "kgmeaiohbiopoacdedgpmchjbkbmdfig";
 
+/** Add-on ID of the Firefox build (`browser_specific_settings.gecko.id`). */
+export const FIREFOX_ID = "localhost-dashboard@extension";
+
 export const PROTOCOL_VERSION = 1;
 
 export type Framework =
@@ -53,6 +56,26 @@ export interface Server {
   daemon: boolean;
   /** Profile this server is running from, matched by cwd + port. */
   profileId?: string;
+  /** Set when the port is published by a Docker container. */
+  container?: ContainerInfo;
+}
+
+export interface ComposeInfo {
+  project: string;
+  service: string;
+  workingDir: string;
+  configFiles: string[];
+}
+
+export interface ContainerInfo {
+  id: string;
+  name: string;
+  image: string;
+  /** Port inside the container that this host port maps to. */
+  containerPort: number;
+  /** Host address the port is published on (`0.0.0.0`, `127.0.0.1`, `::`). */
+  hostIp: string;
+  compose?: ComposeInfo;
 }
 
 /** A remembered way to start a server. */
@@ -67,6 +90,8 @@ export interface Profile {
   port?: number;
   /** Last framework seen running from this profile; lets a stopped profile be moved with the right flag. */
   framework?: Framework;
+  /** For container profiles: what's needed to re-publish on another port while stopped. */
+  docker?: Omit<ContainerInfo, "id" | "image">;
   /** Captured from a running server and still owned by auto-capture (overwritten on re-capture, pruned when stale). */
   autoCaptured: boolean;
   /** Kept forever and listed first. */
@@ -98,7 +123,7 @@ export interface StopResult {
 }
 
 /** How a move changes the command: an existing port replaced, a flag appended, or `PORT` set. */
-export type PortStrategy = "replace" | "flag" | "env";
+export type PortStrategy = "replace" | "flag" | "env" | "compose";
 
 export interface MovePreview {
   /** Requested port, or the next free one after the current port. */
@@ -131,7 +156,8 @@ export interface HostMethods {
   list: { params: {}; result: Snapshot };
   /** Start pushing `snapshot` events on this connection. */
   subscribe: { params: {}; result: Snapshot };
-  stop: { params: { pid: number; port: number }; result: StopResult };
+  /** Stops the process, or the container when `containerId` is given. */
+  stop: { params: { pid: number; port: number; containerId?: string }; result: StopResult };
   start: { params: { profileId: string }; result: StartResult };
   /** Proposed command/env for moving a profile to `port` (or a suggested free port). */
   "move.preview": { params: { profileId: string; port?: number }; result: MovePreview };

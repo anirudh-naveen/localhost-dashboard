@@ -70,7 +70,7 @@ export function App() {
                   tabCount={state.tabs[s.port]?.length ?? 0}
                   canControl={canControl}
                   onOpen={() => send({ type: "open", port: s.port })}
-                  onStop={() => call("stop", { pid: s.pid, port: s.port })}
+                  onStop={() => call("stop", { pid: s.pid, port: s.port, containerId: s.container?.id })}
                   onMove={s.profileId ? () => setMoving(s.profileId!) : undefined}
                 />
               ))}

@@ -8,6 +8,11 @@ Find, stop, start and re-port the dev servers running on `localhost`.
   or the framework's flag added, e.g. `npm run dev -- --port 5180`, else `PORT=`), you
   review it, and the server restarts there. Open tabs follow; if the new port fails, it's
   restarted on the old one.
+- **Docker**: ports published by containers show the container (and Compose service);
+  Stop/Start use `docker stop` / `docker start` or `docker compose up -d`. Moving a Compose
+  service writes an override (`ports: !override`, Compose ≥ 2.24.4) to
+  `~/.localhost-dashboard/compose/` and recreates the container; your compose file isn't
+  touched. Plain `docker run` containers can't be moved (that would mean recreating them).
 - **Profiles** are captured automatically from servers you run (by folder + port, using the
   outer command like `npm run dev`). Editing or pinning one makes it yours; unpinned
   auto-captured profiles are forgotten after 14 days unseen. State lives in
@@ -43,6 +48,20 @@ npm test
 The manifest pins a public `key`, so the extension ID is always
 `kgmeaiohbiopoacdedgpmchjbkbmdfig`, which is what the companion installer allows by default.
 After rebuilding, click the reload icon on the extension card.
+
+## Firefox
+
+`npm run build` also produces `packages/extension/dist-firefox` (Firefox 140+). Load it via
+`about:debugging` → This Firefox → Load Temporary Add-on → `dist-firefox/manifest.json`.
+`npm run install-host` registers the companion for Firefox too when it's installed. Firefox
+treats localhost access as opt-in: the popup shows an **Allow** button in detect-only mode.
+
+## Platforms
+
+- **macOS**: `lsof` + `ps`.
+- **Linux**: reads `/proc` directly (no `lsof`/`ss` needed, which minimal installs lack);
+  command lines keep exact argv. The tests run discovery against a `/proc` snapshot captured
+  from a real Linux container (`packages/core/test/fixtures/linux-proc`).
 
 ## Install the companion
 

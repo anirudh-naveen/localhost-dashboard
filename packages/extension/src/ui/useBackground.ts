@@ -1,6 +1,7 @@
 import type { HostMethods } from "@ld/shared";
 import { useEffect, useRef, useState } from "react";
 import { UI_PORT, type BgToUi, type MoveParams, type State, type UiMethod, type UiToBg } from "../messages";
+import { ext } from "../ext";
 
 type Result = Extract<BgToUi, { type: "result" }>;
 
@@ -12,7 +13,7 @@ export function useBackground() {
   const nextId = useRef(1);
 
   useEffect(() => {
-    const port = chrome.runtime.connect({ name: UI_PORT });
+    const port = ext.runtime.connect({ name: UI_PORT });
     portRef.current = port;
     port.onMessage.addListener((msg: BgToUi) => {
       if (msg.type === "state") setState(msg.state);
