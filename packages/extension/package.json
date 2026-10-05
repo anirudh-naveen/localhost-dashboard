@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc --noEmit && vite build && node scripts/build-firefox.mjs && node scripts/build-safari.mjs",
     "dev": "vite build --watch --mode development",
-    "safari:project": "sh scripts/safari-project.sh"
+    "safari:project": "sh scripts/safari-project.sh",
+    "package:chrome": "npm run build && node scripts/package-chrome.mjs"
   },
   "dependencies": {
     "@ld/shared": "*",
