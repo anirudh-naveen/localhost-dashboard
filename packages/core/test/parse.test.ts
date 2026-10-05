@@ -111,6 +111,22 @@ describe("stopTargets", () => {
     expect(stopTargets(400, tree)).toEqual([400, 300, 200]);
   });
 
+  it("stops below a wrapper that also runs another server", () => {
+    const tree = parsePsTree(
+      [
+        "100 1 /bin/zsh -l",
+        "200 100 node /p/node_modules/.bin/concurrently npm:web npm:api",
+        "300 200 npm run web",
+        "400 300 node /p/node_modules/.bin/vite",
+        "500 200 npm run api",
+        "600 500 node api.js",
+      ].join("\n"),
+    );
+    expect(stopTargets(400, tree, [400, 600])).toEqual([400, 300]);
+    // With no sibling listening, the whole chain goes.
+    expect(stopTargets(400, tree, [400])).toEqual([400, 300, 200]);
+  });
+
   it("does not include a bare shell with no wrapper above it", () => {
     const tree = parsePsTree(["100 1 /bin/zsh -l", "300 100 sh -c ./server", "400 300 ./server"].join("\n"));
     expect(stopTargets(400, tree)).toEqual([400]);

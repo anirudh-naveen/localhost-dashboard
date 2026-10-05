@@ -1,18 +1,33 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
+const SYSTEM_DIRS = ["/usr/sbin", "/usr/bin", "/sbin", "/bin"];
+const resolved = new Map<string, string>();
+
+/** System tools by absolute path, since browsers launch the companion with a minimal PATH (lsof is in /usr/sbin). */
+function resolve(cmd: string): string {
+  let path = resolved.get(cmd);
+  if (!path) {
+    path = SYSTEM_DIRS.map((d) => join(d, cmd)).find(existsSync) ?? cmd;
+    resolved.set(cmd, path);
+  }
+  return path;
+}
 
 /**
  * Run a command and return stdout. A non-zero exit still resolves with
  * whatever was printed, since lsof exits 1 when nothing matches.
  */
 export function run(cmd: string, args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
+  return new Promise((ok, fail) => {
     execFile(
-      cmd,
+      resolve(cmd),
       args,
       { env: { ...process.env, LC_ALL: "C" }, maxBuffer: 16 * 1024 * 1024 },
       (err, stdout) => {
-        if (err && (err as NodeJS.ErrnoException).code === "ENOENT") reject(err);
-        else resolve(stdout);
+        if (err && (err as NodeJS.ErrnoException).code === "ENOENT") fail(err);
+        else ok(stdout);
       },
     );
   });

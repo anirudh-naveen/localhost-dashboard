@@ -1,0 +1,301 @@
+body {
+  font-size: 14px;
+}
+
+.page {
+  min-height: 100vh;
+}
+
+main {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 8px 24px 48px;
+}
+
+.page.with-logs main {
+  margin-right: 460px;
+  margin-left: max(24px, calc((100vw - 1080px - 460px) / 2));
+}
+
+main > header {
+  padding: 16px 0;
+  border-bottom: none;
+}
+
+main > header h1 {
+  font-size: 20px;
+}
+
+main > .banner {
+  margin: 0 0 16px;
+}
+
+section {
+  margin-top: 20px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.section-head h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.empty {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+
+/* Profiles table */
+table.profiles {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.profiles th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.profiles td {
+  padding: 10px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.profiles tr:last-child td {
+  border-bottom: none;
+}
+
+.profiles tbody tr:hover {
+  background: var(--hover);
+}
+
+.profiles td:first-child {
+  width: 14px;
+  padding-right: 0;
+}
+
+.profiles td:first-child .dot {
+  margin-top: 6px;
+}
+
+.profiles td:nth-child(2) {
+  max-width: 240px;
+}
+
+.profiles .command {
+  display: block;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--code);
+}
+
+.profiles .actions {
+  justify-content: flex-end;
+}
+
+.badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 500;
+  background: var(--accent-soft);
+  color: var(--accent);
+  vertical-align: 1px;
+}
+
+.badge-muted {
+  background: var(--btn);
+  color: var(--muted);
+}
+
+/* Log drawer */
+.logs {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 440px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.logs-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.logs-head .meta {
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logs .error {
+  padding: 8px 16px 0;
+}
+
+.logs pre {
+  flex: 1;
+  margin: 0;
+  padding: 12px 16px;
+  overflow: auto;
+  background: var(--code);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Editor dialog */
+dialog.editor {
+  width: min(520px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+dialog.editor::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+
+.editor form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+}
+
+.editor h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.editor label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor input:not([type="checkbox"]),
+.editor textarea {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--fg);
+  background: var(--code);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 9px;
+}
+
+.editor input.mono,
+.editor textarea.mono {
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.editor input:focus,
+.editor textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.editor .hint {
+  margin: 0;
+  font-weight: 400;
+}
+
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+@media (max-width: 900px) {
+  .page.with-logs main {
+    margin: 0 auto;
+    padding-bottom: 50vh;
+  }
+
+  .logs {
+    top: auto;
+    width: 100%;
+    height: 45vh;
+    border-left: none;
+    border-top: 1px solid var(--line);
+  }
+}
+
+/* Narrower table while the log drawer is open */
+.profiles .actions {
+  flex-wrap: nowrap;
+}
+
+.page.with-logs .profiles th:nth-child(5),
+.page.with-logs .profiles td:nth-child(5) {
+  display: none;
+}
+
+.page.with-logs .profiles .command {
+  max-width: 170px;
+}
+
+.page.with-logs .profiles td:nth-child(2) {
+  max-width: 180px;
+}
+
+.page.with-logs .profiles td:nth-child(2) .meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

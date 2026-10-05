@@ -1,4 +1,5 @@
 import type { Server } from "@ld/shared";
+import { stopTargets } from "../control.js";
 import { run } from "../exec.js";
 import { detectFramework, isHidden, isLocalBind } from "./classify.js";
 import { parseLsofCwd, parseLsofListen, parsePs } from "./parse.js";
@@ -24,17 +25,20 @@ export async function listServers({ titles = true }: ListOptions = {}): Promise<
   if (byKey.size === 0) return [];
 
   const pids = [...new Set([...byKey.values()].map((l) => l.pid))].join(",");
+  // All processes, not just listeners, so we can walk up to the launcher.
   const [psOut, cwdOut] = await Promise.all([
-    run("ps", ["-o", "pid=,ppid=,pgid=,lstart=,command=", "-p", pids]),
+    run("ps", ["-Ao", "pid=,ppid=,pgid=,lstart=,command="]),
     run("lsof", ["-a", "-d", "cwd", "-p", pids, "-Fn"]),
   ]);
   const procs = parsePs(psOut);
+  const listenerPids = [...new Set(listeners.map((l) => l.pid))];
   const cwds = parseLsofCwd(cwdOut);
 
   const servers: Server[] = [...byKey.values()].map((l) => {
     const proc = procs.get(l.pid);
     const cmdline = proc?.cmdline ?? l.command;
     const framework = detectFramework(`${l.command} ${cmdline}`);
+    const top = procs.get(stopTargets(l.pid, procs, listenerPids).at(-1)!);
     return {
       port: l.port,
       address: l.address,
@@ -48,6 +52,8 @@ export async function listServers({ titles = true }: ListOptions = {}): Promise<
       startedAt: proc?.startedAt,
       framework,
       hidden: isHidden(l.command, cmdline, l.port, framework),
+      launch: top?.cmdline ?? cmdline,
+      daemon: (top?.ppid ?? 1) <= 1,
     };
   });
 

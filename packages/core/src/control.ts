@@ -21,17 +21,33 @@ function isAlive(pid: number): boolean {
   }
 }
 
-async function listeningPids(port: number): Promise<number[]> {
-  const out = await run("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"]);
-  return out.split("\n").filter(Boolean).map(Number);
+/** PIDs listening on `port`, or on any TCP port when omitted. */
+export async function listeningPids(port?: number): Promise<number[]> {
+  const out = await run("lsof", ["-nP", port ? `-iTCP:${port}` : "-iTCP", "-sTCP:LISTEN", "-t"]);
+  return [...new Set(out.split("\n").filter(Boolean).map(Number))];
 }
 
-/** The server pid plus any wrapper ancestors (`npm run dev` → `node vite`). */
-export function stopTargets(pid: number, tree: Map<number, { ppid: number; cmdline: string }>): number[] {
+type Tree = Map<number, { ppid: number; cmdline: string }>;
+
+function ancestors(pid: number, tree: Tree): Set<number> {
+  const out = new Set<number>();
+  for (let cur = tree.get(pid)?.ppid; cur && cur > 1 && !out.has(cur); cur = tree.get(cur)?.ppid) out.add(cur);
+  return out;
+}
+
+/**
+ * The server pid plus any wrapper ancestors (`npm run dev` → `node vite`).
+ * Stops below a wrapper that also runs another listening server (`concurrently`,
+ * `turbo`), so stopping one server doesn't take its siblings down.
+ */
+export function stopTargets(pid: number, tree: Tree, otherListeners: number[] = []): number[] {
+  const shared = new Set<number>();
+  for (const other of otherListeners) if (other !== pid) for (const a of ancestors(other, tree)) shared.add(a);
+
   const targets = [pid];
   let shims: number[] = [];
   let cur = tree.get(pid)?.ppid;
-  while (cur && cur > 1 && cur !== process.pid) {
+  while (cur && cur > 1 && cur !== process.pid && !shared.has(cur)) {
     const node = tree.get(cur);
     if (!node) break;
     if (SHELL_SHIM.test(node.cmdline)) {
@@ -67,11 +83,14 @@ export async function stopServer(pid: number, port: number, timeoutMs = 3000): P
     throw new Error(`pid ${pid} is no longer listening on :${port}`);
   }
 
-  const tree = parsePsTree(await run("ps", ["-Ao", "pid=,ppid=,command="]));
+  const [tree, listeners] = await Promise.all([
+    run("ps", ["-Ao", "pid=,ppid=,command="]).then(parsePsTree),
+    listeningPids(),
+  ]);
   if (DOCKER.test(tree.get(pid)?.cmdline ?? "")) {
     throw new Error("Port is published by Docker; stop the container instead");
   }
-  const targets = stopTargets(pid, tree);
+  const targets = stopTargets(pid, tree, listeners);
   signal(targets, "SIGTERM");
 
   const deadline = Date.now() + timeoutMs;

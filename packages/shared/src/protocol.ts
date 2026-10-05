@@ -47,6 +47,39 @@ export interface Server {
   title?: string;
   /** System/app listeners (ControlCenter, Spotify, ephemeral ports) hidden by default. */
   hidden: boolean;
+  /** Command line of the outermost launcher (`npm run dev` rather than `node …/vite`). */
+  launch: string;
+  /** Outermost launcher is parented by launchd/init: a managed service or an already-detached process. */
+  daemon: boolean;
+  /** Profile this server is running from, matched by cwd + port. */
+  profileId?: string;
+}
+
+/** A remembered way to start a server. */
+export interface Profile {
+  id: string;
+  name: string;
+  /** Shell command, run with the user's `$SHELL -c` in `cwd`. */
+  command: string;
+  cwd: string;
+  env: Record<string, string>;
+  /** Port the server is expected to listen on; Start waits for it. */
+  port?: number;
+  /** Captured from a running server and still owned by auto-capture (overwritten on re-capture, pruned when stale). */
+  autoCaptured: boolean;
+  /** Kept forever and listed first. */
+  pinned: boolean;
+  /** Epoch ms. */
+  createdAt: number;
+  /** Epoch ms the server was last seen running. */
+  lastSeen?: number;
+}
+
+export type ProfileInput = Omit<Profile, "id" | "autoCaptured" | "createdAt" | "lastSeen"> & { id?: string };
+
+export interface Snapshot {
+  servers: Server[];
+  profiles: Profile[];
 }
 
 export interface HostInfo {
@@ -62,13 +95,24 @@ export interface StopResult {
   pids: number[];
 }
 
+export interface StartResult {
+  pid: number;
+  /** False when the profile has no port, or nothing listened before the timeout. */
+  listening: boolean;
+}
+
 /** Request type → result type. */
 export interface HostMethods {
   ping: { params: {}; result: HostInfo };
-  list: { params: {}; result: Server[] };
-  /** Start pushing `servers.changed` events on this connection. */
-  subscribe: { params: {}; result: Server[] };
+  list: { params: {}; result: Snapshot };
+  /** Start pushing `snapshot` events on this connection. */
+  subscribe: { params: {}; result: Snapshot };
   stop: { params: { pid: number; port: number }; result: StopResult };
+  start: { params: { profileId: string }; result: StartResult };
+  "profiles.upsert": { params: { profile: ProfileInput }; result: Profile };
+  "profiles.delete": { params: { profileId: string }; result: null };
+  /** Last ~64 KB of the profile's log file. */
+  "logs.tail": { params: { profileId: string }; result: { text: string; path: string } };
 }
 
 export type HostMethod = keyof HostMethods;
@@ -81,6 +125,6 @@ export type HostResponse =
   | { id: number; ok: true; result: unknown }
   | { id: number; ok: false; error: string };
 
-export type HostEvent = { event: "servers.changed"; servers: Server[] };
+export type HostEvent = { event: "snapshot" } & Snapshot;
 
 export type HostMessage = HostResponse | HostEvent;

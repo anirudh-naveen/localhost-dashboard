@@ -2,6 +2,13 @@
 
 Find, stop, start and re-port the dev servers running on `localhost`.
 
+- **Popup**: running servers (Open / Stop) and recently stopped ones (Start).
+- **Dashboard** (⧉ in the popup): profiles you can edit, pin and start, plus live logs.
+- **Profiles** are captured automatically from servers you run (by folder + port, using the
+  outer command like `npm run dev`). Editing or pinning one makes it yours; unpinned
+  auto-captured profiles are forgotten after 14 days unseen. State lives in
+  `~/.localhost-dashboard/` (`profiles.json`, `logs/<id>.log`).
+
 A Chrome extension (UI + tab integration) talks over Native Messaging to a small
 companion process that does the OS work (listing listeners, signalling processes).
 Without the companion the extension falls back to probing common ports, read-only.
@@ -11,9 +18,9 @@ Without the companion the extension falls back to probing common ports, read-onl
 | Package | What |
 | --- | --- |
 | `packages/shared` | Protocol types shared by the extension and the companion |
-| `packages/core` | Discovery (`lsof`/`ps`) and process control; reusable by a future desktop app |
+| `packages/core` | Discovery (`lsof`/`ps`), stop/start, profiles and logs; reusable by a future desktop app |
 | `packages/host` | Native Messaging companion + installer |
-| `packages/extension` | MV3 extension: popup, badge, probe fallback |
+| `packages/extension` | MV3 extension: popup, dashboard, badge, probe fallback |
 
 ## Develop
 

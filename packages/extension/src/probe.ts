@@ -31,6 +31,8 @@ async function probe(port: number): Promise<Server | null> {
       framework: "unknown",
       title,
       hidden: false,
+      launch: "",
+      daemon: false,
     };
   } catch {
     return null;
