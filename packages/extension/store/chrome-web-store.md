@@ -63,8 +63,8 @@ Show the development servers running on the user's own computer (localhost) and 
 - I do not use or transfer user data for purposes that are unrelated to my item's single purpose
 - I do not use or transfer user data to determine creditworthiness or for lending purposes
 
-**Privacy policy URL:** the GitHub URL of `PRIVACY.md` once the repository is public, e.g.
-`https://github.com/<you>/localhost-dashboard/blob/main/PRIVACY.md`
+**Privacy policy URL** (works once the repository is pushed and public):
+`https://github.com/anirudh-naveen/localhost-dashboard/blob/main/PRIVACY.md`
 
 ## Distribution tab
 
