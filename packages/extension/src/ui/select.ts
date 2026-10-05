@@ -1,6 +1,6 @@
 import type { Profile } from "@ld/shared";
 import type { State } from "../messages";
-import { ext } from "../ext";
+import { desktop, ext } from "../ext";
 
 /** Profiles with no running server: pinned first, then most recently seen. */
 export function stoppedProfiles(state: State): Profile[] {
@@ -16,6 +16,7 @@ export function profileById(state: State): Map<string, Profile> {
 
 /** Focus the dashboard if it's already open, otherwise open it. */
 export async function openDashboard(): Promise<void> {
+  if (desktop) return desktop.openDashboard();
   const url = ext.runtime.getURL("dashboard.html");
   // Match patterns can't express chrome-extension:// URLs, so filter by hand.
   const tab = (await ext.tabs.query({})).find((t) => t.url?.startsWith(url));

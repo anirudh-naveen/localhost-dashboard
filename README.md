@@ -30,6 +30,7 @@ Without the companion the extension falls back to probing common ports, read-onl
 | `packages/core` | Discovery (`lsof`/`ps`), stop/start, profiles and logs; reusable by a future desktop app |
 | `packages/host` | Native Messaging companion + installer |
 | `packages/extension` | MV3 extension: popup, dashboard, badge, probe fallback |
+| `packages/desktop` | Electron menu-bar app: same UI, calls `core` directly (no companion needed) |
 
 ## Develop
 
@@ -48,6 +49,18 @@ npm test
 The manifest pins a public `key`, so the extension ID is always
 `kgmeaiohbiopoacdedgpmchjbkbmdfig`, which is what the companion installer allows by default.
 After rebuilding, click the reload icon on the extension card.
+
+## Desktop app
+
+```bash
+npm run desktop
+```
+
+A menu-bar icon with the running-server count; click it for the popup, right-click for the
+dashboard, Open at Login, and Quit. It reuses the extension's pages over an IPC bridge and
+calls `core` in-process, so it works without a browser or the companion. It can't retarget
+browser tabs after a move; the extension still can, and both can run side by side.
+`electron packages/desktop/scripts/smoke.mjs` drives the real app end to end.
 
 ## Firefox
 

@@ -1,19 +1,7 @@
 #!/usr/bin/env node
 /** Native Messaging host: Chrome spawns this per connection and talks over stdio. */
-import {
-  deleteProfile,
-  getProfile,
-  listServers,
-  moveProfile,
-  previewMove,
-  startProfile,
-  stopContainer,
-  stopServer,
-  syncProfiles,
-  tailLog,
-  upsertProfile,
-} from "@ld/core";
-import { PROTOCOL_VERSION, type HostEvent, type HostRequest, type HostResponse, type Snapshot } from "@ld/shared";
+import { invoke, MUTATING, snapshot, snapshotKey as key, type ActionMethod } from "@ld/core";
+import { PROTOCOL_VERSION, type HostEvent, type HostRequest, type HostResponse } from "@ld/shared";
 import { encode, FrameDecoder } from "./framing.js";
 
 const POLL_MS = 2000;
@@ -22,29 +10,8 @@ function send(msg: HostResponse | HostEvent): void {
   process.stdout.write(encode(msg));
 }
 
-async function snapshot(): Promise<Snapshot> {
-  const servers = await listServers();
-  const profiles = await syncProfiles(servers);
-  return { servers, profiles };
-}
-
-/** A profile plus its running server, if any. */
-async function withServer(profileId: string) {
-  const snap = await snapshot();
-  const profile = snap.profiles.find((p) => p.id === profileId);
-  if (!profile) throw new Error(`No profile ${profileId}`);
-  return { profile, server: snap.servers.find((s) => s.profileId === profileId) };
-}
-
 let subscribed = false;
 let lastKey = "";
-
-function key(s: Snapshot): string {
-  return JSON.stringify([
-    s.servers.map((x) => [x.pid, x.port, x.title, x.hidden, x.profileId]),
-    s.profiles.map((p) => [p.id, p.name, p.command, p.cwd, p.port, p.pinned, p.autoCaptured, p.env]),
-  ]);
-}
 
 /** Push a snapshot to a subscribed extension if it differs from the last one sent. */
 async function push(force = false): Promise<void> {
@@ -85,35 +52,12 @@ async function handle(req: HostRequest): Promise<unknown> {
       lastKey = key(snap);
       return snap;
     }
-    case "stop":
-      if (req.containerId) {
-        await stopContainer(req.containerId, req.port);
-        return { forced: false, pids: [] };
-      }
-      return stopServer(req.pid, req.port);
-    case "start":
-      return startProfile(await getProfile(req.profileId));
-    case "move.preview": {
-      const { profile, server } = await withServer(req.profileId);
-      return previewMove(profile, server, req.port);
+    default: {
+      const { id: _, type, ...params } = req;
+      return invoke(type as ActionMethod, params as never);
     }
-    case "move": {
-      const { profile, server } = await withServer(req.profileId);
-      return moveProfile(profile, server, req.port, { command: req.command, env: req.env });
-    }
-    case "profiles.upsert":
-      return upsertProfile(req.profile);
-    case "profiles.delete":
-      await deleteProfile(req.profileId);
-      return null;
-    case "logs.tail":
-      return tailLog(req.profileId);
-    default:
-      throw new Error(`unknown request type: ${(req as { type: string }).type}`);
   }
 }
-
-const MUTATING = new Set(["stop", "start", "move", "profiles.upsert", "profiles.delete"]);
 
 const decoder = new FrameDecoder();
 process.stdin.on("data", (chunk: Buffer) => {
@@ -125,7 +69,7 @@ process.stdin.on("data", (chunk: Buffer) => {
         (e: unknown) => send({ id: req.id, ok: false, error: e instanceof Error ? e.message : String(e) }),
       )
       // Reflect changes immediately rather than on the next poll.
-      .then(() => (MUTATING.has(req.type) ? push() : undefined))
+      .then(() => (MUTATING.has(req.type as ActionMethod) ? push() : undefined))
       .catch((e) => console.error("push failed:", e));
   }
 });

@@ -6,11 +6,12 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc -b packages/host && npm run build -w @ld/extension",
+    "build": "tsc -b packages/host packages/desktop && npm run build -w @ld/extension",
     "test": "vitest run",
-    "typecheck": "tsc -b packages/host && tsc -p packages/extension",
+    "typecheck": "tsc -b packages/host packages/desktop && tsc -p packages/extension",
     "install-host": "node packages/host/dist/install.js install",
-    "uninstall-host": "node packages/host/dist/install.js uninstall"
+    "uninstall-host": "node packages/host/dist/install.js uninstall",
+    "desktop": "npm run build && npm start -w @ld/desktop"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

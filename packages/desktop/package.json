@@ -1,0 +1,18 @@
+{
+  "name": "@ld/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Menu-bar app for Localhost Dashboard",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@ld/core": "*",
+    "@ld/shared": "*"
+  },
+  "devDependencies": {
+    "electron": "^44.5.1"
+  }
+}

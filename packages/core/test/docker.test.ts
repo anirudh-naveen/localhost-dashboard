@@ -1,4 +1,7 @@
 import type { Server } from "@ld/shared";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { composeOverride, containerLaunch, parseDockerPs, parsePorts } from "../src/docker.js";
 import { reconcile } from "../src/profiles.js";
@@ -32,13 +35,19 @@ describe("docker", () => {
   });
 
   it("builds launch commands", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ld compose-"));
+    const file = join(dir, "compose.yml");
+    writeFileSync(file, "services: {}\n");
+    const compose = { project: "p", service: "db", workingDir: dir, configFiles: [file] };
     expect(containerLaunch({ name: "my web" })).toBe("docker start 'my web'");
-    expect(
-      containerLaunch(
-        { name: "pg", compose: { project: "p", service: "db", workingDir: "/w", configFiles: ["/w/a b.yml"] } },
-        "/s/o.yaml",
-      ),
-    ).toBe("docker compose -p p -f '/w/a b.yml' -f /s/o.yaml up -d db");
+    expect(containerLaunch({ name: "pg", compose }, "/s/o.yaml")).toBe(
+      `docker compose -p p -f '${file}' -f /s/o.yaml up -d db`,
+    );
+    // Project moved since the container was created: compose can't find its file, but the container still exists.
+    expect(containerLaunch({ name: "pg", compose: { ...compose, configFiles: ["/gone/compose.yml"] } })).toBe(
+      "docker start pg",
+    );
+    rmSync(dir, { recursive: true });
   });
 
   it("writes a compose override that replaces the service's ports", () => {
@@ -77,5 +86,29 @@ describe("docker", () => {
       docker: { name: "p-db-1", containerPort: 5432, hostIp: "0.0.0.0" },
     });
     expect(profiles[0].docker).not.toHaveProperty("id");
+  });
+});
+
+describe("moving a container whose compose project moved", () => {
+  it("explains instead of running a compose command that can't work", async () => {
+    const { previewMove } = await import("../src/move.js");
+    const profile = {
+      id: "x",
+      name: "postgres",
+      command: "docker start pg",
+      cwd: "/",
+      env: {},
+      port: 5432,
+      autoCaptured: true,
+      pinned: false,
+      createdAt: 0,
+      docker: {
+        name: "pg",
+        containerPort: 5432,
+        hostIp: "0.0.0.0",
+        compose: { project: "p", service: "postgres", workingDir: "/gone", configFiles: ["/gone/docker-compose.yml"] },
+      },
+    };
+    await expect(previewMove(profile, undefined, 55999)).rejects.toThrow(/no longer exists.*moved/);
   });
 });

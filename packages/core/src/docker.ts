@@ -105,9 +105,17 @@ export async function listContainers(): Promise<Container[]> {
   return cache.containers;
 }
 
-/** The command that brings this container back: `compose up -d` for a service, `docker start` otherwise. */
+/** Compose files recorded on the container still exist (they don't if the project was moved or deleted). */
+export function composeFilesExist(compose: ComposeInfo): boolean {
+  return compose.configFiles.length > 0 && compose.configFiles.every(existsSync);
+}
+
+/**
+ * The command that brings this container back: `compose up -d` for a service whose
+ * compose files are still there, `docker start` otherwise (stopping keeps the container).
+ */
 export function containerLaunch(c: { name: string; compose?: ComposeInfo }, overrideFile?: string): string {
-  if (!c.compose) return shellQuote(["docker", "start", c.name]);
+  if (!c.compose || !composeFilesExist(c.compose)) return shellQuote(["docker", "start", c.name]);
   const files = [...c.compose.configFiles, ...(overrideFile ? [overrideFile] : [])].flatMap((f) => ["-f", f]);
   return shellQuote(["docker", "compose", "-p", c.compose.project, ...files, "up", "-d", c.compose.service]);
 }

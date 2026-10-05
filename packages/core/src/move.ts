@@ -2,7 +2,7 @@ import type { Framework, MovePreview, MoveResult, Profile, Server } from "@ld/sh
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { stopServer } from "./control.js";
-import { composeOverride, containerLaunch } from "./docker.js";
+import { composeFilesExist, composeOverride, containerLaunch } from "./docker.js";
 import { startProfile } from "./launch.js";
 import { stateDir } from "./paths.js";
 import { isPortFree, suggestPort, validPort } from "./ports.js";
@@ -23,6 +23,11 @@ function dockerRewrite(profile: Profile): PortRewrite | undefined {
   if (!d.compose) {
     throw new Error(
       `${d.name} was started with \`docker run\`; changing its port means recreating it. Re-run it with -p NEW:${d.containerPort}, or use Compose.`,
+    );
+  }
+  if (!composeFilesExist(d.compose)) {
+    throw new Error(
+      `${d.compose.service}'s compose file (${d.compose.configFiles.join(", ")}) no longer exists, so the project was probably moved. Run \`docker compose up -d\` from its new location, then move it from here.`,
     );
   }
   return { command: containerLaunch(d, overridePath(profile)), env: profile.env, strategy: "compose" };

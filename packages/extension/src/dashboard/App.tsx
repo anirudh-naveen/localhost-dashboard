@@ -2,6 +2,7 @@ import type { Profile, ProfileInput, Server } from "@ld/shared";
 import { useEffect, useRef, useState } from "react";
 import { ago, tildify, useNow } from "../ui/format";
 import { InstallBanner } from "../ui/InstallBanner";
+import { ModePill } from "../ui/ModePill";
 import { MovePanel } from "../ui/MovePanel";
 import { ConfirmButton, ErrorLine, ServerRow, useAction } from "../ui/rows";
 import { profileById } from "../ui/select";
@@ -38,9 +39,7 @@ export function App() {
       <main>
         <header>
           <h1>Localhost Dashboard</h1>
-          <span className={`pill pill-${state.mode}`}>
-            {state.mode === "host" ? "Companion" : state.mode === "probe" ? "Detect-only" : "Connecting…"}
-          </span>
+          <ModePill mode={state.mode} />
           <button className="icon" title="Refresh" onClick={() => send({ type: "refresh" })}>
             ↻
           </button>

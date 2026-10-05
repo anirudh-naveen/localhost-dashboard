@@ -1,35 +1,4 @@
-import type { HostMethods, Profile, Server } from "@ld/shared";
+export type { BgToUi, DesktopBridge, Mode, MoveParams, State, UiMethod, UiToBg } from "@ld/shared";
 
-export type Mode = "connecting" | "host" | "probe";
-
-export interface State {
-  mode: Mode;
-  servers: Server[];
-  /** Empty in probe mode: profiles live with the companion. */
-  profiles: Profile[];
-  /** Why the companion isn't available, when mode is "probe". */
-  hostError?: string;
-  /** port → ids of tabs showing it. */
-  tabs: Record<number, number[]>;
-}
-
-/** Companion methods UI pages may call through the background. */
-export type UiMethod = Exclude<keyof HostMethods, "ping" | "list" | "subscribe">;
-
-export type MoveParams = HostMethods["move"]["params"] & {
-  /** Point tabs on the old port at the new one once it's listening. */
-  retargetTabs: boolean;
-};
-
-export type UiToBg =
-  | { type: "refresh" }
-  | { type: "open"; port: number }
-  | { type: "host"; reqId: number; method: UiMethod; params: object }
-  | { type: "move"; reqId: number; params: MoveParams };
-
-export type BgToUi =
-  | { type: "state"; state: State }
-  | { type: "result"; reqId: number; ok: true; result: unknown }
-  | { type: "result"; reqId: number; ok: false; error: string };
-
+/** Name of the runtime port UI pages open to the background worker. */
 export const UI_PORT = "ui";

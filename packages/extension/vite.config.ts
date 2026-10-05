@@ -4,6 +4,8 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react()],
+  // Relative asset URLs so the same pages load from chrome-extension:// and the desktop app's file://.
+  base: "./",
   build: {
     outDir: "dist",
     emptyOutDir: true,

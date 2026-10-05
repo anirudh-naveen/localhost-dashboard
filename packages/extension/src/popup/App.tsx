@@ -2,6 +2,7 @@ import { useState } from "react";
 import { MovePanel } from "../ui/MovePanel";
 import { useNow } from "../ui/format";
 import { InstallBanner } from "../ui/InstallBanner";
+import { ModePill } from "../ui/ModePill";
 import { ServerRow, StoppedRow } from "../ui/rows";
 import { openDashboard, profileById, stoppedProfiles } from "../ui/select";
 import { useBackground } from "../ui/useBackground";
@@ -28,9 +29,7 @@ export function App() {
     <div className="app">
       <header>
         <h1>Localhost</h1>
-        <span className={`pill pill-${state.mode}`}>
-          {state.mode === "host" ? "Companion" : state.mode === "probe" ? "Detect-only" : "Connecting…"}
-        </span>
+        <ModePill mode={state.mode} />
         <button className="icon" title="Refresh" onClick={() => send({ type: "refresh" })}>
           ↻
         </button>
