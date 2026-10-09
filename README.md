@@ -1,6 +1,6 @@
 # localhost-dashboard
 
-Find, stop, start and re-port the dev servers running on `localhost`.
+[Chrome extension](https://chromewebstore.google.com/detail/localhost-dashboard/agmologjihjggnapiknohgimcpbliajk) that finds, stops, starts and re-ports the dev servers running on `localhost`.
 
 - **Popup**: running servers (Open / Stop) and recently stopped ones (Start).
 - **Dashboard** (⧉ in the popup): profiles you can edit, pin and start, plus live logs.
